@@ -197,7 +197,7 @@ const ServicesManager = ({ businessId }) => {
                     min="0"
                     step="0.01"
                     placeholder="100"
-                    value={formData.price}
+                    value={formData.price || ''}
                     onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
                     required
                     className="rounded-lg bg-slate-50"
