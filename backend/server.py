@@ -592,7 +592,8 @@ async def get_super_admin_stats(current_user: dict = Depends(get_super_admin)):
     # Aylık gelir (bu ay oluşturulan randevuların toplamı)
     current_month = datetime.now(timezone.utc).strftime('%Y-%m')
     monthly_appointments = await db.appointments.find({
-        "created_at": {"$regex": f"^{current_month}"}
+        "appointment_date": {"$regex": f"^{current_month}"},
+        "status": "completed"  # 👈 Sadece tamamlananlar
     }, {"_id": 0, "price": 1}).to_list(10000)
     monthly_revenue = sum(a.get('price', 0) for a in monthly_appointments)
     
