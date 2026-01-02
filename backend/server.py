@@ -30,6 +30,9 @@ SECRET_KEY = os.environ.get('JWT_SECRET', 'your-secret-key-change-in-production'
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
 
+# Super Admin Email
+SUPER_ADMIN_EMAIL = os.environ.get('SUPER_ADMIN_EMAIL', '')
+
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
@@ -61,11 +64,29 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         user = await db.users.find_one({"id": user_id}, {"_id": 0})
         if not user:
             raise HTTPException(status_code=401, detail="Kullanıcı bulunamadı")
+        
+        # Last login güncelle
+        await db.users.update_one(
+            {"id": user_id},
+            {"$set": {"last_login": datetime.now(timezone.utc).isoformat()}}
+        )
+        
         return user
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token süresi doldu")
     except Exception:
         raise HTTPException(status_code=401, detail="Geçersiz token")
+
+async def get_super_admin(current_user: dict = Depends(get_current_user)):
+    """Super admin kontrolü - sadece belirlenen email erişebilir"""
+    if current_user.get('email') != SUPER_ADMIN_EMAIL:
+        raise HTTPException(
+            status_code=403, 
+            detail="Bu alana erişim yetkiniz yok"
+        )
+    return current_user
+
+# ==================== MODELS ====================
 
 class Business(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -77,6 +98,18 @@ class Business(BaseModel):
     address: Optional[str] = None
     working_hours: dict = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    
+    # 🆕 SUPER ADMIN ALANLARI
+    owner_email: Optional[str] = None
+    subscription_plan: str = "baslangic"  # baslangic / profesyonel / isletme
+    subscription_expires: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc) + timedelta(days=30)
+    )
+    is_active: bool = True
+    last_login: Optional[datetime] = None
+    total_appointments: int = 0
+    total_staff: int = 0
+    total_services: int = 0
 
 class BusinessCreate(BaseModel):
     name: str
@@ -151,6 +184,7 @@ class User(BaseModel):
     business_id: Optional[str] = None
     role: str = "business_owner"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_login: Optional[datetime] = None
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -166,6 +200,36 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: User
+
+# 🆕 SUPER ADMIN MODELS
+class SuperAdminStats(BaseModel):
+    total_businesses: int
+    active_businesses: int
+    inactive_businesses: int
+    total_users: int
+    total_appointments: int
+    today_appointments: int
+    monthly_revenue: float
+
+class BusinessDetail(BaseModel):
+    id: str
+    name: str
+    owner_email: str
+    created_at: datetime
+    last_login: Optional[datetime]
+    staff_count: int
+    service_count: int
+    appointment_count: int
+    subscription_plan: str
+    subscription_expires: datetime
+    days_remaining: int
+    is_active: bool
+
+class SubscriptionUpdate(BaseModel):
+    subscription_plan: str
+    subscription_expires: datetime
+
+# ==================== AUTH ENDPOINTS ====================
 
 @api_router.post("/auth/register", response_model=Token)
 async def register(user_data: UserCreate):
@@ -207,27 +271,58 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         current_user['created_at'] = datetime.fromisoformat(current_user['created_at'])
     return User(**current_user)
 
+# ==================== BUSINESS ENDPOINTS ====================
+
 @api_router.post("/businesses", response_model=Business)
 async def create_business(business_data: BusinessCreate, current_user: dict = Depends(get_current_user)):
     # Slug kontrolü
     existing = await db.businesses.find_one({"slug": business_data.slug}, {"_id": 0})
     if existing:
-        raise HTTPException(status_code=400, detail="Bu slug zaten kullanılıyor")
+        raise HTTPException(status_code=400, detail="URL adresi zaten kullanılıyor")
     
     business_dict = business_data.model_dump()
-    business_dict['id'] = str(uuid.uuid4())
-    business_dict['created_at'] = datetime.now()
-    
+    business_dict['owner_email'] = current_user['email']  # 🆕 Owner email ekle
     business = Business(**business_dict)
-    await db.businesses.insert_one(business.model_dump())
     
-    # User'ı güncelle
+    doc = business.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['subscription_expires'] = doc['subscription_expires'].isoformat()
+    
+    await db.businesses.insert_one(doc)
+    
+    # Kullanıcıya business_id ata
     await db.users.update_one(
         {"id": current_user['id']},
         {"$set": {"business_id": business.id}}
     )
     
     return business
+
+@api_router.put("/businesses/{business_id}", response_model=Business)
+async def update_business(business_id: str, business_data: BusinessCreate, current_user: dict = Depends(get_current_user)):
+    if current_user.get('business_id') != business_id:
+        raise HTTPException(status_code=403, detail="Bu işletmeyi güncelleme yetkiniz yok")
+    
+    existing = await db.businesses.find_one({"slug": business_data.slug, "id": {"$ne": business_id}}, {"_id": 0})
+    if existing:
+        raise HTTPException(status_code=400, detail="URL adresi zaten kullanılıyor")
+    
+    update_data = business_data.model_dump()
+    result = await db.businesses.update_one(
+        {"id": business_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="İşletme bulunamadı")
+    
+    updated_business = await db.businesses.find_one({"id": business_id}, {"_id": 0})
+    if isinstance(updated_business.get('created_at'), str):
+        updated_business['created_at'] = datetime.fromisoformat(updated_business['created_at'])
+    if isinstance(updated_business.get('subscription_expires'), str):
+        updated_business['subscription_expires'] = datetime.fromisoformat(updated_business['subscription_expires'])
+    
+    return Business(**updated_business)
 
 @api_router.get("/businesses/{slug}", response_model=Business)
 async def get_business_by_slug(slug: str):
@@ -237,6 +332,8 @@ async def get_business_by_slug(slug: str):
     
     if isinstance(business.get('created_at'), str):
         business['created_at'] = datetime.fromisoformat(business['created_at'])
+    if isinstance(business.get('subscription_expires'), str):
+        business['subscription_expires'] = datetime.fromisoformat(business['subscription_expires'])
     
     return Business(**business)
 
@@ -246,7 +343,11 @@ async def get_all_businesses():
     for b in businesses:
         if isinstance(b.get('created_at'), str):
             b['created_at'] = datetime.fromisoformat(b['created_at'])
+        if isinstance(b.get('subscription_expires'), str):
+            b['subscription_expires'] = datetime.fromisoformat(b['subscription_expires'])
     return [Business(**b) for b in businesses]
+
+# ==================== SERVICE ENDPOINTS ====================
 
 @api_router.post("/services", response_model=Service)
 async def create_service(service_data: ServiceCreate, current_user: dict = Depends(get_current_user)):
@@ -261,6 +362,13 @@ async def create_service(service_data: ServiceCreate, current_user: dict = Depen
     doc['created_at'] = doc['created_at'].isoformat()
     
     await db.services.insert_one(doc)
+    
+    # 🆕 İşletme total_services güncelle
+    await db.businesses.update_one(
+        {"id": current_user['business_id']},
+        {"$inc": {"total_services": 1}}
+    )
+    
     return service
 
 @api_router.get("/services/{business_id}", response_model=List[Service])
@@ -271,34 +379,11 @@ async def get_services(business_id: str):
             s['created_at'] = datetime.fromisoformat(s['created_at'])
     return [Service(**s) for s in services]
 
-@api_router.put("/staff/{staff_id}", response_model=Staff)
-async def update_staff(staff_id: str, staff_data: StaffCreate, current_user: dict = Depends(get_current_user)):
-    if not current_user.get('business_id'):
-        raise HTTPException(status_code=400, detail="Kullanıcı bir işletme ile ilişkilendirilmeli")
-    
-    # Personeli güncelle
-    update_data = staff_data.model_dump()
-    result = await db.staff.update_one(
-        {"id": staff_id, "business_id": current_user['business_id']},
-        {"$set": update_data}
-    )
-    
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Personel bulunamadı")
-    
-    # Güncellenmiş personeli getir
-    updated_staff = await db.staff.find_one({"id": staff_id}, {"_id": 0})
-    if isinstance(updated_staff.get('created_at'), str):
-        updated_staff['created_at'] = datetime.fromisoformat(updated_staff['created_at'])
-    
-    return Staff(**updated_staff)
-
 @api_router.put("/services/{service_id}", response_model=Service)
 async def update_service(service_id: str, service_data: ServiceCreate, current_user: dict = Depends(get_current_user)):
     if not current_user.get('business_id'):
         raise HTTPException(status_code=400, detail="Kullanıcı bir işletme ile ilişkilendirilmeli")
     
-    # Hizmeti güncelle
     update_data = service_data.model_dump()
     result = await db.services.update_one(
         {"id": service_id, "business_id": current_user['business_id']},
@@ -308,7 +393,6 @@ async def update_service(service_id: str, service_data: ServiceCreate, current_u
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Hizmet bulunamadı")
     
-    # Güncellenmiş hizmeti getir
     updated_service = await db.services.find_one({"id": service_id}, {"_id": 0})
     if isinstance(updated_service.get('created_at'), str):
         updated_service['created_at'] = datetime.fromisoformat(updated_service['created_at'])
@@ -320,7 +404,16 @@ async def delete_service(service_id: str, current_user: dict = Depends(get_curre
     result = await db.services.delete_one({"id": service_id, "business_id": current_user.get('business_id')})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Hizmet bulunamadı")
+    
+    # 🆕 İşletme total_services güncelle
+    await db.businesses.update_one(
+        {"id": current_user['business_id']},
+        {"$inc": {"total_services": -1}}
+    )
+    
     return {"message": "Hizmet silindi"}
+
+# ==================== STAFF ENDPOINTS ====================
 
 @api_router.post("/staff", response_model=Staff)
 async def create_staff(staff_data: StaffCreate, current_user: dict = Depends(get_current_user)):
@@ -335,6 +428,13 @@ async def create_staff(staff_data: StaffCreate, current_user: dict = Depends(get
     doc['created_at'] = doc['created_at'].isoformat()
     
     await db.staff.insert_one(doc)
+    
+    # 🆕 İşletme total_staff güncelle
+    await db.businesses.update_one(
+        {"id": current_user['business_id']},
+        {"$inc": {"total_staff": 1}}
+    )
+    
     return staff
 
 @api_router.get("/staff/{business_id}", response_model=List[Staff])
@@ -345,39 +445,50 @@ async def get_staff(business_id: str):
             s['created_at'] = datetime.fromisoformat(s['created_at'])
     return [Staff(**s) for s in staff_list]
 
+@api_router.put("/staff/{staff_id}", response_model=Staff)
+async def update_staff(staff_id: str, staff_data: StaffCreate, current_user: dict = Depends(get_current_user)):
+    if not current_user.get('business_id'):
+        raise HTTPException(status_code=400, detail="Kullanıcı bir işletme ile ilişkilendirilmeli")
+    
+    update_data = staff_data.model_dump()
+    result = await db.staff.update_one(
+        {"id": staff_id, "business_id": current_user['business_id']},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Personel bulunamadı")
+    
+    updated_staff = await db.staff.find_one({"id": staff_id}, {"_id": 0})
+    if isinstance(updated_staff.get('created_at'), str):
+        updated_staff['created_at'] = datetime.fromisoformat(updated_staff['created_at'])
+    
+    return Staff(**updated_staff)
+
 @api_router.delete("/staff/{staff_id}")
 async def delete_staff(staff_id: str, current_user: dict = Depends(get_current_user)):
     result = await db.staff.delete_one({"id": staff_id, "business_id": current_user.get('business_id')})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Personel bulunamadı")
+    
+    # 🆕 İşletme total_staff güncelle
+    await db.businesses.update_one(
+        {"id": current_user['business_id']},
+        {"$inc": {"total_staff": -1}}
+    )
+    
     return {"message": "Personel silindi"}
 
-@api_router.get("/appointments/availability")
-async def check_availability(business_id: str, staff_id: str, appointment_date: str, time_slot: str):
-    existing = await db.appointments.find_one({
-        "business_id": business_id,
-        "staff_id": staff_id,
-        "appointment_date": appointment_date,
-        "time_slot": time_slot,
-        "status": {"$ne": "cancelled"}
-    })
-    
-    return {"available": existing is None}
+# ==================== APPOINTMENT ENDPOINTS ====================
 
-@api_router.post("/appointments", response_model=Appointment)
-async def create_appointment(appointment_data: AppointmentCreate, business_id: str):
-    # Hizmet bilgisini al
+@api_router.post("/appointments/{business_id}", response_model=Appointment)
+async def create_appointment(business_id: str, appointment_data: AppointmentCreate):
     service = await db.services.find_one({"id": appointment_data.service_id}, {"_id": 0})
     if not service:
         raise HTTPException(status_code=404, detail="Hizmet bulunamadı")
     
-    # Yeni randevunun başlangıç ve bitiş zamanını hesapla
-    new_start_minutes = time_to_minutes(appointment_data.time_slot)
-    new_end_minutes = new_start_minutes + service['duration']
-    
     staff_name = None
     if appointment_data.staff_id:
-        # O personelin o tarihteki tüm randevularını al
         existing_appointments = await db.appointments.find({
             "business_id": business_id,
             "staff_id": appointment_data.staff_id,
@@ -385,23 +496,24 @@ async def create_appointment(appointment_data: AppointmentCreate, business_id: s
             "status": {"$ne": "cancelled"}
         }, {"_id": 0}).to_list(1000)
         
-        # Her randevuyla çakışma kontrolü yap
+        requested_start = time_to_minutes(appointment_data.time_slot)
+        requested_end = requested_start + service['duration']
+        
         for existing in existing_appointments:
             existing_start = time_to_minutes(existing['time_slot'])
             existing_end = existing_start + existing['duration']
             
-            if check_time_overlap(new_start_minutes, new_end_minutes, existing_start, existing_end):
+            if check_time_overlap(requested_start, requested_end, existing_start, existing_end):
                 raise HTTPException(
-                    status_code=400, 
-                    detail=f"Bu saat aralığı dolu. Mevcut randevu: {existing['time_slot']} ({existing['duration']} dk)"
+                    status_code=400,
+                    detail=f"Bu saatte zaten bir randevu var. "
+                           f"Mevcut randevu: {existing['time_slot']} ({existing['duration']} dk)"
                 )
         
-        # Personel bilgisini al
         staff = await db.staff.find_one({"id": appointment_data.staff_id}, {"_id": 0})
         if staff:
             staff_name = staff['name']
     
-    # Randevuyu oluştur
     appointment_dict = appointment_data.model_dump()
     appointment_dict['business_id'] = business_id
     appointment_dict['service_name'] = service['name']
@@ -416,6 +528,12 @@ async def create_appointment(appointment_data: AppointmentCreate, business_id: s
     
     await db.appointments.insert_one(doc)
     
+    # 🆕 İşletme total_appointments güncelle
+    await db.businesses.update_one(
+        {"id": business_id},
+        {"$inc": {"total_appointments": 1}}
+    )
+    
     business = await db.businesses.find_one({"id": business_id}, {"_id": 0})
     business_name = business['name'] if business else 'İşletme'
     
@@ -429,7 +547,7 @@ async def create_appointment(appointment_data: AppointmentCreate, business_id: s
     return appointment
 
 @api_router.get("/appointments/{business_id}", response_model=List[Appointment])
-async def get_appointments(business_id: str, current_user: dict = Depends(get_current_user)):
+async def get_appointments(business_id: str): 
     appointments = await db.appointments.find({"business_id": business_id}, {"_id": 0}).sort("appointment_date", -1).to_list(1000)
     for a in appointments:
         if isinstance(a.get('created_at'), str):
@@ -448,12 +566,206 @@ async def update_appointment_status(appointment_id: str, status: str, current_us
     
     return {"message": "Durum güncellendi"}
 
+# ==================== 🆕 SUPER ADMIN ENDPOINTS ====================
+
+@api_router.get("/superadmin/stats", response_model=SuperAdminStats)
+async def get_super_admin_stats(current_user: dict = Depends(get_super_admin)):
+    """Dashboard istatistikleri"""
+    
+    # Toplam işletme
+    total_businesses = await db.businesses.count_documents({})
+    
+    # Aktif/Pasif işletmeler
+    active_businesses = await db.businesses.count_documents({"is_active": True})
+    inactive_businesses = total_businesses - active_businesses
+    
+    # Toplam kullanıcı
+    total_users = await db.users.count_documents({})
+    
+    # Toplam randevu
+    total_appointments = await db.appointments.count_documents({})
+    
+    # Bugünkü randevular
+    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    today_appointments = await db.appointments.count_documents({"appointment_date": today})
+    
+    # Aylık gelir (bu ay oluşturulan randevuların toplamı)
+    current_month = datetime.now(timezone.utc).strftime('%Y-%m')
+    monthly_appointments = await db.appointments.find({
+        "created_at": {"$regex": f"^{current_month}"}
+    }, {"_id": 0, "price": 1}).to_list(10000)
+    monthly_revenue = sum(a.get('price', 0) for a in monthly_appointments)
+    
+    return SuperAdminStats(
+        total_businesses=total_businesses,
+        active_businesses=active_businesses,
+        inactive_businesses=inactive_businesses,
+        total_users=total_users,
+        total_appointments=total_appointments,
+        today_appointments=today_appointments,
+        monthly_revenue=monthly_revenue
+    )
+
+@api_router.get("/superadmin/businesses", response_model=List[BusinessDetail])
+async def get_all_businesses_detail(current_user: dict = Depends(get_super_admin)):
+    """Tüm işletmelerin detaylı listesi"""
+    
+    businesses = await db.businesses.find({}, {"_id": 0}).to_list(1000)
+    result = []
+    
+    for b in businesses:
+        # Datetime dönüşümleri
+        if isinstance(b.get('created_at'), str):
+            b['created_at'] = datetime.fromisoformat(b['created_at'])
+        if isinstance(b.get('subscription_expires'), str):
+            b['subscription_expires'] = datetime.fromisoformat(b['subscription_expires'])
+        if isinstance(b.get('last_login'), str):
+            b['last_login'] = datetime.fromisoformat(b['last_login'])
+        
+        # Kalan gün hesapla
+        days_remaining = (b['subscription_expires'] - datetime.now(timezone.utc)).days
+        
+        # Detaylı istatistikler
+        staff_count = await db.staff.count_documents({"business_id": b['id']})
+        service_count = await db.services.count_documents({"business_id": b['id']})
+        appointment_count = await db.appointments.count_documents({"business_id": b['id']})
+        
+        business_detail = BusinessDetail(
+            id=b['id'],
+            name=b['name'],
+            owner_email=b.get('owner_email', 'N/A'),
+            created_at=b['created_at'],
+            last_login=b.get('last_login'),
+            staff_count=staff_count,
+            service_count=service_count,
+            appointment_count=appointment_count,
+            subscription_plan=b.get('subscription_plan', 'baslangic'),
+            subscription_expires=b['subscription_expires'],
+            days_remaining=days_remaining,
+            is_active=b.get('is_active', True)
+        )
+        
+        result.append(business_detail)
+    
+    return result
+
+@api_router.patch("/superadmin/business/{business_id}/suspend")
+async def suspend_business(business_id: str, suspend: bool, current_user: dict = Depends(get_super_admin)):
+    """İşletmeyi askıya al / aktifleştir"""
+    
+    result = await db.businesses.update_one(
+        {"id": business_id},
+        {"$set": {"is_active": not suspend}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="İşletme bulunamadı")
+    
+    return {
+        "message": f"İşletme {'askıya alındı' if suspend else 'aktifleştirildi'}",
+        "business_id": business_id,
+        "is_active": not suspend
+    }
+
+@api_router.put("/superadmin/business/{business_id}/subscription")
+async def update_subscription(
+    business_id: str, 
+    subscription_data: SubscriptionUpdate, 
+    current_user: dict = Depends(get_super_admin)
+):
+    """İşletme aboneliğini güncelle"""
+    
+    result = await db.businesses.update_one(
+        {"id": business_id},
+        {"$set": {
+            "subscription_plan": subscription_data.subscription_plan,
+            "subscription_expires": subscription_data.subscription_expires.isoformat()
+        }}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="İşletme bulunamadı")
+    
+    return {
+        "message": "Abonelik güncellendi",
+        "business_id": business_id,
+        "subscription_plan": subscription_data.subscription_plan,
+        "subscription_expires": subscription_data.subscription_expires
+    }
+
+@api_router.delete("/superadmin/business/{business_id}")
+async def delete_business(business_id: str, current_user: dict = Depends(get_super_admin)):
+    """İşletmeyi ve ilgili tüm verileri sil"""
+    
+    # İşletme var mı kontrol et
+    business = await db.businesses.find_one({"id": business_id}, {"_id": 0})
+    if not business:
+        raise HTTPException(status_code=404, detail="İşletme bulunamadı")
+    
+    # İlgili verileri sil
+    await db.services.delete_many({"business_id": business_id})
+    await db.staff.delete_many({"business_id": business_id})
+    await db.appointments.delete_many({"business_id": business_id})
+    
+    # İşletme sahibinin business_id'sini temizle
+    await db.users.delete_many({"business_id": business_id})
+    
+    # İşletmeyi sil
+    await db.users.delete_many({"business_id": business_id})
+    
+    return {
+        "message": "İşletme ve tüm ilgili veriler silindi",
+        "business_id": business_id,
+        "business_name": business.get('name', 'N/A')
+    }
+
+@api_router.post("/superadmin/migrate")
+async def migrate_existing_businesses(current_user: dict = Depends(get_super_admin)):
+    """Mevcut işletmelere varsayılan abonelik bilgileri ekle"""
+    
+    businesses = await db.businesses.find({}, {"_id": 0}).to_list(1000)
+    updated_count = 0
+    
+    for business in businesses:
+        # Eğer yeni alanlar yoksa ekle
+        if 'subscription_plan' not in business:
+            default_expires = datetime.now(timezone.utc) + timedelta(days=30)
+            
+            update_fields = {
+                "subscription_plan": "baslangic",
+                "subscription_expires": default_expires.isoformat(),
+                "is_active": True,
+                "total_appointments": 0,
+                "total_staff": 0,
+                "total_services": 0
+            }
+            
+            # Owner email'i bul
+            owner = await db.users.find_one({"business_id": business['id']}, {"_id": 0})
+            if owner:
+                update_fields["owner_email"] = owner['email']
+            
+            await db.businesses.update_one(
+                {"id": business['id']},
+                {"$set": update_fields}
+            )
+            
+            updated_count += 1
+    
+    return {
+        "message": f"{updated_count} işletme güncellendi",
+        "total_businesses": len(businesses),
+        "updated": updated_count
+    }
+
+# ==================== APP SETUP ====================
+
 app.include_router(api_router)
 
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=["*"],  # Veya ["http://localhost:3000"]
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -467,4 +779,3 @@ logger = logging.getLogger(__name__)
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
-

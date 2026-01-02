@@ -134,7 +134,7 @@ const BookingPage = () => {
 
     try {
       await axios.post(
-        `${API}/appointments?business_id=${business.id}`,
+        `${API}/appointments/${business.id}`,
         {
           customer_name: customerName,
           customer_phone: customerPhone,

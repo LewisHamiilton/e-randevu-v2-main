@@ -8,6 +8,7 @@ import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import AdminDashboard from '@/pages/AdminDashboard';
 import PlatformAdmin from '@/pages/PlatformAdmin';
+import SuperAdmin from '@/pages/SuperAdmin';  // 🆕 SUPER ADMIN
 import ProtectedRoute from '@/components/ProtectedRoute';
 import '@/App.css';
 
@@ -34,6 +35,15 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PlatformAdmin />
+                </ProtectedRoute>
+              }
+            />
+            {/* 🆕 SUPER ADMIN ROUTE */}
+            <Route
+              path="/superadmin"
+              element={
+                <ProtectedRoute>
+                  <SuperAdmin />
                 </ProtectedRoute>
               }
             />

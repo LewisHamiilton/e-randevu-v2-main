@@ -8,6 +8,9 @@ import { Card } from '@/components/ui/card';
 import { Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 
+// 🆕 Super Admin Email
+const SUPER_ADMIN_EMAIL = 'oibis@gmail.com';
+
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,9 +23,15 @@ const Login = () => {
     setLoading(true);
 
     try {
-      await login(email, password);
+      const user = await login(email, password);
       toast.success('Giriş başarılı!');
-      navigate('/admin/dashboard');
+
+      // 🆕 SUPER ADMIN KONTROLÜ
+      if (user.email === SUPER_ADMIN_EMAIL) {
+        navigate('/superadmin');
+      } else {
+        navigate('/admin/dashboard');
+      }
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Giriş başarısız');
     } finally {
