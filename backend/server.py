@@ -207,33 +207,27 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         current_user['created_at'] = datetime.fromisoformat(current_user['created_at'])
     return User(**current_user)
 
-@api_router.put("/businesses/{business_id}", response_model=Business)
-async def update_business(business_id: str, business_data: BusinessCreate, current_user: dict = Depends(get_current_user)):
-    # Kullanıcının kendi işletmesini güncelleyip güncellemediğini kontrol et
-    if current_user.get('business_id') != business_id:
-        raise HTTPException(status_code=403, detail="Bu işletmeyi güncelleme yetkiniz yok")
-    
-    # Slug değiştiriliyorsa, başka işletmede kullanılmadığını kontrol et
-    existing = await db.businesses.find_one({"slug": business_data.slug, "id": {"$ne": business_id}}, {"_id": 0})
+@api_router.post("/businesses", response_model=Business)
+async def create_business(business_data: BusinessCreate, current_user: dict = Depends(get_current_user)):
+    # Slug kontrolü
+    existing = await db.businesses.find_one({"slug": business_data.slug}, {"_id": 0})
     if existing:
-        raise HTTPException(status_code=400, detail="URL adresi zaten kullanılıyor")
+        raise HTTPException(status_code=400, detail="Bu slug zaten kullanılıyor")
     
-    # İşletmeyi güncelle
-    update_data = business_data.model_dump()
-    result = await db.businesses.update_one(
-        {"id": business_id},
-        {"$set": update_data}
+    business_dict = business_data.model_dump()
+    business_dict['id'] = str(uuid.uuid4())
+    business_dict['created_at'] = datetime.now()
+    
+    business = Business(**business_dict)
+    await db.businesses.insert_one(business.model_dump())
+    
+    # User'ı güncelle
+    await db.users.update_one(
+        {"id": current_user['id']},
+        {"$set": {"business_id": business.id}}
     )
     
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="İşletme bulunamadı")
-    
-    # Güncellenmiş işletmeyi getir
-    updated_business = await db.businesses.find_one({"id": business_id}, {"_id": 0})
-    if isinstance(updated_business.get('created_at'), str):
-        updated_business['created_at'] = datetime.fromisoformat(updated_business['created_at'])
-    
-    return Business(**updated_business)
+    return business
 
 @api_router.get("/businesses/{slug}", response_model=Business)
 async def get_business_by_slug(slug: str):
