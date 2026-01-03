@@ -345,6 +345,10 @@ async def get_businesses_list():
         "is_active": True,
         "subscription_expires": {"$gte": now.isoformat()}
     }, {"_id": 0}).to_list(1000)
+    for b in businesses:
+        if isinstance(b.get('created_at'), str):
+            b['created_at'] = datetime.fromisoformat(b['created_at'])
+    return [Business(**b) for b in businesses]
 
 # ==================== SERVICE ENDPOINTS ====================
 
