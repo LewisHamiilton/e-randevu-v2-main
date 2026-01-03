@@ -296,8 +296,8 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 
 # ==================== BUSINESS ENDPOINTS ====================
 
+@api_router.post("/businesses", response_model=Business)
 async def create_business(business_data: BusinessCreate, current_user: dict = Depends(get_current_user)):
-    # 🆕 Kullanıcının zaten işletmesi var mı kontrol et
     if current_user.get('business_id'):
         raise HTTPException(status_code=400, detail="Zaten bir işletmeniz var")
     
