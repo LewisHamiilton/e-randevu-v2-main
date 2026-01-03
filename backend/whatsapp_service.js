@@ -59,11 +59,11 @@ async function sendMessage(phoneNumber, message) {
 
         // Eğer 0 ile başlıyorsa, 90 ile değiştir
         if (formattedNumber.startsWith('0')) {
-            formattedNumber = '+90' + formattedNumber.substring(1);
+            formattedNumber = '90' + formattedNumber.substring(1);
         }
         // Eğer 90 ile başlamıyorsa, başına ekle
         else if (!formattedNumber.startsWith('90')) {
-            formattedNumber = '+90' + formattedNumber;
+            formattedNumber = '90' + formattedNumber;
         }
 
         formattedNumber += '@c.us';
