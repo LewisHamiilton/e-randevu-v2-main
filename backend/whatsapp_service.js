@@ -47,6 +47,7 @@ function initWhatsApp() {
 }
 
 // Mesaj gönder
+// Mesaj gönder
 async function sendMessage(phoneNumber, message) {
     if (!isReady) {
         throw new Error('WhatsApp bağlı değil');
@@ -54,7 +55,20 @@ async function sendMessage(phoneNumber, message) {
 
     try {
         // Numara formatı: 905551234567@c.us
-        const formattedNumber = phoneNumber.replace(/[^0-9]/g, '') + '@c.us';
+        let formattedNumber = phoneNumber.replace(/[^0-9]/g, '');
+
+        // Eğer 0 ile başlıyorsa, 90 ile değiştir
+        if (formattedNumber.startsWith('0')) {
+            formattedNumber = '90' + formattedNumber.substring(1);
+        }
+        // Eğer 90 ile başlamıyorsa, başına ekle
+        else if (!formattedNumber.startsWith('90')) {
+            formattedNumber = '90' + formattedNumber;
+        }
+
+        formattedNumber += '@c.us';
+
+        console.log(`Gönderilecek numara: ${formattedNumber}`);
         await client.sendMessage(formattedNumber, message);
         console.log(`✅ Mesaj gönderildi: ${phoneNumber}`);
         return true;
