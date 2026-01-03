@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, User, Phone, DollarSign } from 'lucide-react';
+import { Calendar, Clock, User, Phone, DollarSign, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -15,20 +15,33 @@ const AppointmentsView = ({ businessId }) => {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [lastRefresh, setLastRefresh] = useState(new Date());
 
   useEffect(() => {
     loadAppointments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [businessId]);
 
-  const loadAppointments = async () => {
+  // 🆕 AUTO-REFRESH: Her 30 saniyede otomatik yenile
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadAppointments(true); // true = sessiz yenileme (loading gösterme)
+      setLastRefresh(new Date());
+    }, 30000); // 30 saniye
+
+    return () => clearInterval(interval);
+  }, [businessId]);
+
+  const loadAppointments = async (silent = false) => {
+    if (!silent) setLoading(true);
+
     try {
       const response = await axios.get(`${API}/appointments/${businessId}`);
       setAppointments(response.data);
     } catch (error) {
-      toast.error('Randevular yüklenemedi');
+      if (!silent) toast.error('Randevular yüklenemedi');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -86,64 +99,83 @@ const AppointmentsView = ({ businessId }) => {
       {/* HEADER + FILTERS */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight" data-testid="appointments-title">Randevular</h2>
-          <p className="text-sm sm:text-base text-slate-600 mt-1">Tüm randevuları yönetin</p>
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight" data-testid="appointments-title">Randevular</h2>
+            {/* 🆕 AUTO-REFRESH INDICATOR */}
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <RefreshCw className="h-3 w-3 animate-pulse" />
+              <span>Otomatik yenileniyor</span>
+            </div>
+          </div>
+          <p className="text-sm sm:text-base text-slate-600 mt-1">
+            Tüm randevuları yönetin • Son güncelleme: {format(lastRefresh, 'HH:mm:ss')}
+          </p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button
             variant={filter === 'all' ? 'default' : 'outline'}
-            onClick={() => setFilter('all')}
             size="sm"
-            className="text-xs sm:text-sm"
-            data-testid="filter-all"
+            onClick={() => setFilter('all')}
           >
             Tümü
           </Button>
           <Button
             variant={filter === 'confirmed' ? 'default' : 'outline'}
-            onClick={() => setFilter('confirmed')}
             size="sm"
-            className="text-xs sm:text-sm"
-            data-testid="filter-confirmed"
+            onClick={() => setFilter('confirmed')}
           >
-            Onaylandı
+            Onaylı
           </Button>
           <Button
             variant={filter === 'completed' ? 'default' : 'outline'}
-            onClick={() => setFilter('completed')}
             size="sm"
-            className="text-xs sm:text-sm"
-            data-testid="filter-completed"
+            onClick={() => setFilter('completed')}
           >
             Tamamlandı
+          </Button>
+          <Button
+            variant={filter === 'cancelled' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilter('cancelled')}
+          >
+            İptal
+          </Button>
+          {/* 🆕 MANUEL YENILE BUTONU */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => loadAppointments()}
+          >
+            <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
       {/* APPOINTMENTS LIST */}
       {filteredAppointments.length === 0 ? (
-        <Card className="p-8 sm:p-12 text-center rounded-xl">
-          <Calendar className="h-10 w-10 sm:h-12 sm:w-12 text-slate-400 mx-auto mb-4" />
-          <h3 className="text-lg sm:text-xl font-semibold mb-2">Henüz Randevu Yok</h3>
-          <p className="text-sm sm:text-base text-slate-600">Randevularınız burada görünecek</p>
+        <Card className="p-12 text-center">
+          <Calendar className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-slate-900 mb-2">Henüz randevu yok</h3>
+          <p className="text-slate-600">
+            {filter === 'all'
+              ? 'Müşterileriniz randevu aldığında burada göreceksiniz.'
+              : `${getStatusText(filter)} durumunda randevu bulunmuyor.`
+            }
+          </p>
         </Card>
       ) : (
-        <div className="grid gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 gap-4">
           {filteredAppointments.map((appointment) => (
-            <Card key={appointment.id} className="p-4 sm:p-6 rounded-xl border-slate-100" data-testid={`appointment-card-${appointment.id}`}>
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <Card key={appointment.id} className="p-4 sm:p-6 hover:shadow-md transition-shadow">
+              <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                 {/* LEFT SIDE - INFO */}
-                <div className="space-y-3 flex-1 min-w-0">
-                  {/* NAME + STATUS */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-base sm:text-lg font-semibold truncate">{appointment.customer_name}</h3>
-                      <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1 mt-1">
-                        <Phone className="h-3 w-3 flex-shrink-0" />
-                        <span className="truncate">{appointment.customer_phone}</span>
-                      </p>
+                <div className="flex-1 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400" />
+                      <h3 className="text-base sm:text-lg font-semibold text-slate-900">{appointment.customer_name}</h3>
                     </div>
-                    <Badge className={`${getStatusColor(appointment.status)} flex-shrink-0`} data-testid={`status-${appointment.id}`}>
+                    <Badge className={`${getStatusColor(appointment.status)} text-xs`}>
                       {getStatusText(appointment.status)}
                     </Badge>
                   </div>
@@ -168,6 +200,10 @@ const AppointmentsView = ({ businessId }) => {
                         <span className="truncate">{appointment.staff_name}</span>
                       </div>
                     )}
+                    <div className="flex items-center gap-2 text-slate-600">
+                      <Phone className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                      <span>{appointment.customer_phone}</span>
+                    </div>
                   </div>
 
                   {/* NOTES */}

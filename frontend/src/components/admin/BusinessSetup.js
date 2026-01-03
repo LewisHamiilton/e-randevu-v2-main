@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,8 +13,9 @@ import { useAuth } from '@/contexts/AuthContext';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-const BusinessSetup = ({ onBusinessCreated }) => {
-  const { user } = useAuth();
+const BusinessSetup = () => {
+  const { user, refreshUser } = useAuth(); // 🆕 refreshUser eklendi
+  const navigate = useNavigate();
   const [business, setBusiness] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -27,6 +29,7 @@ const BusinessSetup = ({ onBusinessCreated }) => {
 
   useEffect(() => {
     loadBusiness();
+    // eslint-disable-next-line
   }, [user]);
 
   const loadBusiness = async () => {
@@ -65,12 +68,19 @@ const BusinessSetup = ({ onBusinessCreated }) => {
         // Güncelleme
         await axios.put(`${API}/businesses/${business.id}`, formData);
         toast.success('İşletme başarıyla güncellendi!');
-        loadBusiness(); // Güncel bilgileri yükle
+        loadBusiness();
       } else {
-        // Yeni oluşturma
+        // 🆕 Yeni oluşturma - Kullanıcı bilgisini yenile ve yönlendir
         await axios.post(`${API}/businesses`, formData);
         toast.success('İşletme başarıyla oluşturuldu!');
-        if (onBusinessCreated) onBusinessCreated();
+
+        // Kullanıcı bilgisini yenile (business_id güncellensin)
+        await refreshUser();
+
+        // 1 saniye bekle (kullanıcı mesajı görsün)
+        setTimeout(() => {
+          navigate('/admin/dashboard');
+        }, 1000);
       }
     } catch (error) {
       toast.error(error.response?.data?.detail || 'İşlem başarısız');
@@ -117,16 +127,16 @@ const BusinessSetup = ({ onBusinessCreated }) => {
             {business ? 'İşletme Ayarları' : 'İşletmenizi Oluşturun'}
           </h2>
           <p className="text-sm sm:text-base text-slate-600">
-            {business ? 'İşletme bilgilerinizi güncelleyin' : 'Randevu sayfanızı oluşturalım'}
+            {business ? 'İşletme bilgilerinizi güncelleyin' : 'İşletme bilgilerinizi girin ve platformumuza katılın'}
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name" className="text-sm sm:text-base">İşletme Adı *</Label>
             <Input
               id="name"
-              placeholder="Elit Berber Salonu"
+              placeholder="Örnek Kuaför"
               value={formData.name}
               onChange={(e) => handleNameChange(e.target.value)}
               required
@@ -138,10 +148,10 @@ const BusinessSetup = ({ onBusinessCreated }) => {
           <div className="space-y-2">
             <Label htmlFor="slug" className="text-sm sm:text-base">URL Adresi *</Label>
             <div className="flex items-center gap-2">
-              <span className="text-xs sm:text-sm text-slate-600">/book/</span>
+              <span className="text-slate-500 text-xs sm:text-sm">/book/</span>
               <Input
                 id="slug"
-                placeholder="elit-berber"
+                placeholder="ornek-kuafor"
                 value={formData.slug}
                 onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
                 required
@@ -149,28 +159,27 @@ const BusinessSetup = ({ onBusinessCreated }) => {
                 data-testid="business-slug-input"
               />
             </div>
-            <p className="text-xs text-slate-500">Bu sizin randevu sayfanızın adresi olacak</p>
+            <p className="text-xs text-slate-500">Müşterileriniz bu adresten randevu alacak</p>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="description" className="text-sm sm:text-base">Açıklama</Label>
             <Textarea
               id="description"
-              placeholder="10 yılı aşkın tecrübesiyle profesyonel berberlik hizmetleri..."
+              placeholder="İşletmeniz hakkında kısa bir açıklama"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="rounded-lg bg-slate-50 text-sm sm:text-base"
-              rows={3}
+              className="rounded-lg bg-slate-50 text-sm sm:text-base min-h-[80px]"
               data-testid="business-description-input"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="phone" className="text-sm sm:text-base">Telefon Numarası</Label>
+            <Label htmlFor="phone" className="text-sm sm:text-base">Telefon</Label>
             <Input
               id="phone"
               type="tel"
-              placeholder="0555 555 5555"
+              placeholder="+90 555 123 45 67"
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               className="rounded-lg bg-slate-50 text-sm sm:text-base h-10 sm:h-11"
@@ -182,7 +191,7 @@ const BusinessSetup = ({ onBusinessCreated }) => {
             <Label htmlFor="address" className="text-sm sm:text-base">Adres</Label>
             <Input
               id="address"
-              placeholder="Atatürk Cad. No:123 Merkez/Şehir"
+              placeholder="Örnek Mahallesi, No:123 Merkez/Şehir"
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               className="rounded-lg bg-slate-50 text-sm sm:text-base h-10 sm:h-11"
