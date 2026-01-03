@@ -790,13 +790,13 @@ async def delete_business(business_id: str, current_user: dict = Depends(get_sup
         "business_name": business.get('name', 'N/A')
     }
 
-    @api_router.get("/superadmin/logs")
-    async def get_logs(
-        limit: int = 100,
-        log_type: str = None,
-        current_user: dict = Depends(get_super_admin)
-    ):
-        """Son logları getir"""
+@api_router.get("/superadmin/logs")
+async def get_logs(
+    limit: int = 100,
+    log_type: str = None,
+    current_user: dict = Depends(get_super_admin)
+):
+    """Son logları getir"""
     filter_query = {}
     if log_type:
         filter_query["type"] = log_type
