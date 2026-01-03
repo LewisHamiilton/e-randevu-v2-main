@@ -296,24 +296,32 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 
 # ==================== BUSINESS ENDPOINTS ====================
 
-@api_router.post("/businesses", response_model=Business)
 async def create_business(business_data: BusinessCreate, current_user: dict = Depends(get_current_user)):
+    # 🆕 Kullanıcının zaten işletmesi var mı kontrol et
+    if current_user.get('business_id'):
+        raise HTTPException(status_code=400, detail="Zaten bir işletmeniz var")
+    
     # Slug kontrolü
     existing = await db.businesses.find_one({"slug": business_data.slug}, {"_id": 0})
     if existing:
         raise HTTPException(status_code=400, detail="URL adresi zaten kullanılıyor")
     
     business_dict = business_data.model_dump()
-    business_dict['owner_email'] = current_user['email']  # 🆕 Owner email ekle
+    business_dict['owner_email'] = current_user['email']
     business = Business(**business_dict)
-    
     doc = business.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
     doc['subscription_expires'] = doc['subscription_expires'].isoformat()
     
     await db.businesses.insert_one(doc)
     
-    # Kullanıcıya business_id ata
+    # 🆕 Kullanıcıya business_id ata
+    await db.users.update_one(
+        {"id": current_user['id']},
+        {"$set": {"business_id": doc['id']}}
+    )
+    
+    # Log ekle
     await create_log(
         "create_business",
         current_user['email'],
