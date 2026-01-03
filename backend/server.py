@@ -13,6 +13,26 @@ from datetime import datetime, timezone, timedelta, date, time
 from passlib.context import CryptContext
 import jwt
 
+# LOG HELPER FONKSİYONU
+async def create_log(action: str, user_email: str = None, details: dict = None, log_type: str = "info"):
+    """
+    Log oluştur
+    action: Ne yapıldı (örn: "login", "create_business", "delete_appointment")
+    user_email: Kim yaptı
+    details: Ek bilgiler (dict)
+    log_type: "info", "warning", "error", "admin"
+    """
+    log_entry = {
+        "id": str(uuid.uuid4()),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "action": action,
+        "user_email": user_email,
+        "details": details or {},
+        "type": log_type
+    }
+    await db.logs.insert_one(log_entry)
+    return log_entry
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -262,6 +282,9 @@ async def login(credentials: UserLogin):
     user = User(**user_doc)
     token = create_access_token({"sub": user.id, "email": user.email})
     
+    # 🆕 LOG EKLE
+    await create_log("login", user.email, {"user_id": user.id}, "info")
+    
     return Token(access_token=token, user=user)
 
 @api_router.get("/auth/me", response_model=User)
@@ -291,9 +314,11 @@ async def create_business(business_data: BusinessCreate, current_user: dict = De
     await db.businesses.insert_one(doc)
     
     # Kullanıcıya business_id ata
-    await db.users.update_one(
-        {"id": current_user['id']},
-        {"$set": {"business_id": business.id}}
+    await create_log(
+        "create_business",
+        current_user['email'],
+        {"business_id": doc['id'], "business_name": doc['name']},
+        "info"
     )
     
     return business
@@ -414,6 +439,13 @@ async def delete_service(service_id: str, current_user: dict = Depends(get_curre
         {"$inc": {"total_services": -1}}
     )
     
+    await create_log(
+        "delete_business",
+        current_user['email'],
+        {"business_id": business_id, "business_name": business.get('name', 'N/A')},
+        "admin"
+    )
+
     return {"message": "Hizmet silindi"}
 
 # ==================== STAFF ENDPOINTS ====================
@@ -438,6 +470,13 @@ async def create_staff(staff_data: StaffCreate, current_user: dict = Depends(get
         {"$inc": {"total_staff": 1}}
     )
     
+    await create_log(
+        "create_staff",
+        current_user['email'],
+        {"staff_id": staff.id, "staff_name": staff.get('name', 'N/A')},
+        "info"
+    )
+
     return staff
 
 @api_router.get("/staff/{business_id}", response_model=List[Staff])
@@ -705,6 +744,19 @@ async def update_subscription(
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="İşletme bulunamadı")
     
+    await create_log(
+        "update_subscription",
+        current_user['email'],
+        {
+            "business_id": business_id,
+            "new_plan": subscription_data.subscription_plan,
+            "new_expires": subscription_data.subscription_expires.isoformat()  # ← .isoformat() ekle
+        },
+        "admin"
+    )
+    
+    return {"message": "Abonelik güncellendi"}  # ← return ekle
+
     return {
         "message": "Abonelik güncellendi",
         "business_id": business_id,
@@ -737,6 +789,20 @@ async def delete_business(business_id: str, current_user: dict = Depends(get_sup
         "business_id": business_id,
         "business_name": business.get('name', 'N/A')
     }
+
+    @api_router.get("/superadmin/logs")
+    async def get_logs(
+        limit: int = 100,
+        log_type: str = None,
+        current_user: dict = Depends(get_super_admin)
+    ):
+        """Son logları getir"""
+    filter_query = {}
+    if log_type:
+        filter_query["type"] = log_type
+    
+    logs = await db.logs.find(filter_query, {"_id": 0}).sort("timestamp", -1).limit(limit).to_list(limit)
+    return logs
 
 @api_router.post("/superadmin/migrate")
 async def migrate_existing_businesses(current_user: dict = Depends(get_super_admin)):

@@ -3,11 +3,12 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Shield, LogOut } from 'lucide-react';
+import { Shield, LogOut, LayoutDashboard, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import Dashboard from '@/components/superadmin/Dashboard';
 import BusinessTable from '@/components/superadmin/BusinessTable';
 import SubscriptionDialog from '@/components/superadmin/SubscriptionDialog';
+import Logs from '@/components/superadmin/Logs';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -19,9 +20,12 @@ const SuperAdmin = () => {
     const [businesses, setBusinesses] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // 🆕 Dialog State
+    // Dialog State
     const [dialogOpen, setDialogOpen] = useState(false);
     const [selectedBusiness, setSelectedBusiness] = useState(null);
+
+    // 🆕 TAB STATE
+    const [activeTab, setActiveTab] = useState('dashboard'); // dashboard | logs
 
     useEffect(() => {
         checkSuperAdminAccess();
@@ -60,7 +64,6 @@ const SuperAdmin = () => {
         }
     };
 
-    // 🔧 DÜZELTİLMİŞ: Suspend fonksiyonu
     const handleSuspend = async (businessId, currentStatus) => {
         try {
             const token = localStorage.getItem('token');
@@ -78,22 +81,17 @@ const SuperAdmin = () => {
         }
     };
 
-    // 🆕 Dialog Aç
     const handleUpdateSubscription = (businessId) => {
         const business = businesses.find(b => b.id === businessId);
         setSelectedBusiness(business);
         setDialogOpen(true);
     };
 
-    // 🆕 Gerçek Güncelleme
     const handleSaveSubscription = async (businessId, plan, days) => {
         try {
             const token = localStorage.getItem('token');
 
-            // 🆕 Mevcut işletmeyi bul
             const business = businesses.find(b => b.id === businessId);
-
-            // 🆕 Mevcut sürenin üzerine ekle
             const currentExpires = new Date(business.subscription_expires);
             const newExpires = new Date(currentExpires);
             newExpires.setDate(newExpires.getDate() + parseInt(days));
@@ -115,7 +113,6 @@ const SuperAdmin = () => {
         }
     };
 
-    // 🆕 Silme Fonksiyonu
     const handleDelete = async (businessId, businessName) => {
         const confirm = window.confirm(
             `"${businessName}" işletmesini silmek istediğinize emin misiniz?\n\n` +
@@ -189,19 +186,52 @@ const SuperAdmin = () => {
                 </div>
             </nav>
 
-            {/* MAIN CONTENT */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <Dashboard stats={stats} />
-
-                <BusinessTable
-                    businesses={businesses}
-                    onSuspend={handleSuspend}
-                    onUpdateSubscription={handleUpdateSubscription}
-                    onDelete={handleDelete}
-                />
+            {/* 🆕 TAB NAVIGATION */}
+            <div className="bg-white border-b border-slate-200">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex gap-4">
+                        <button
+                            onClick={() => setActiveTab('dashboard')}
+                            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${activeTab === 'dashboard'
+                                    ? 'border-primary text-primary font-medium'
+                                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                                }`}
+                        >
+                            <LayoutDashboard className="h-4 w-4" />
+                            <span>Dashboard</span>
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('logs')}
+                            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${activeTab === 'logs'
+                                    ? 'border-primary text-primary font-medium'
+                                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                                }`}
+                        >
+                            <FileText className="h-4 w-4" />
+                            <span>Loglar</span>
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            {/* 🆕 SUBSCRIPTION DIALOG */}
+            {/* MAIN CONTENT */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                {activeTab === 'dashboard' ? (
+                    <>
+                        <Dashboard stats={stats} />
+                        <BusinessTable
+                            businesses={businesses}
+                            onSuspend={handleSuspend}
+                            onUpdateSubscription={handleUpdateSubscription}
+                            onDelete={handleDelete}
+                        />
+                    </>
+                ) : (
+                    <Logs />
+                )}
+            </div>
+
+            {/* SUBSCRIPTION DIALOG */}
             <SubscriptionDialog
                 isOpen={dialogOpen}
                 onClose={() => setDialogOpen(false)}
