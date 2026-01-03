@@ -473,7 +473,7 @@ async def create_staff(staff_data: StaffCreate, current_user: dict = Depends(get
     await create_log(
         "create_staff",
         current_user['email'],
-        {"staff_id": staff.id, "staff_name": staff.get('name', 'N/A')},
+        {"staff_id": staff.id, "staff_name": staff.name},  # ✅ DOĞRU
         "info"
     )
 
