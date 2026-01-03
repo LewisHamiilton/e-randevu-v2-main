@@ -338,14 +338,13 @@ async def get_business_by_slug(slug: str):
     return Business(**business)
 
 @api_router.get("/businesses", response_model=List[Business])
-async def get_all_businesses():
-    businesses = await db.businesses.find({}, {"_id": 0}).to_list(1000)
-    for b in businesses:
-        if isinstance(b.get('created_at'), str):
-            b['created_at'] = datetime.fromisoformat(b['created_at'])
-        if isinstance(b.get('subscription_expires'), str):
-            b['subscription_expires'] = datetime.fromisoformat(b['subscription_expires'])
-    return [Business(**b) for b in businesses]
+async def get_businesses_list():
+    # Sadece aktif ve süresi dolmamış işletmeler
+    now = datetime.now(timezone.utc)
+    businesses = await db.businesses.find({
+        "is_active": True,
+        "subscription_expires": {"$gte": now.isoformat()}
+    }, {"_id": 0}).to_list(1000)
 
 # ==================== SERVICE ENDPOINTS ====================
 

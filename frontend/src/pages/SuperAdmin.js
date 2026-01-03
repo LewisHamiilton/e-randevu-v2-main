@@ -89,7 +89,13 @@ const SuperAdmin = () => {
     const handleSaveSubscription = async (businessId, plan, days) => {
         try {
             const token = localStorage.getItem('token');
-            const newExpires = new Date();
+
+            // 🆕 Mevcut işletmeyi bul
+            const business = businesses.find(b => b.id === businessId);
+
+            // 🆕 Mevcut sürenin üzerine ekle
+            const currentExpires = new Date(business.subscription_expires);
+            const newExpires = new Date(currentExpires);
             newExpires.setDate(newExpires.getDate() + parseInt(days));
 
             await axios.put(
