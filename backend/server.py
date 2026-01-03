@@ -685,9 +685,7 @@ async def create_appointment(business_id: str, appointment_data: AppointmentCrea
     
     await send_whatsapp_message(appointment.customer_phone, customer_message)
     
-    # WhatsApp mesajı gönder - İşletme sahibine
-    business_user = await db.users.find_one({"business_id": business_id}, {"_id": 0})
-    if business_user and business_user.get('phone'):
+    if business.get('phone'):
         owner_message = f"""📢 Yeni Randevu!
 
 👤 Müşteri: {appointment.customer_name}
@@ -701,7 +699,7 @@ async def create_appointment(business_id: str, appointment_data: AppointmentCrea
         
         owner_message += f"\n💰 Ücret: {appointment.price} TL"
         
-        await send_whatsapp_message(business_user['phone'], owner_message)
+        await send_whatsapp_message(business['phone'], owner_message)
     
     return appointment
 
