@@ -8,6 +8,7 @@ import AppointmentsView from '@/components/admin/AppointmentsView';
 import ServicesManager from '@/components/admin/ServicesManager';
 import StaffManager from '@/components/admin/StaffManager';
 import BusinessSetup from '@/components/admin/BusinessSetup';
+import NotificationBell from '@/components/admin/NotificationBell'; // 🆕 IMPORT
 import { toast } from 'sonner';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -62,7 +63,9 @@ const AdminDashboard = () => {
             <div className="flex items-center gap-2">
               <img src="/icon.png" alt="E-Randevu" className="h-8 sm:h-10" />
               <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-semibold tracking-tight truncate" data-testid="dashboard-title">E-Randevu</h1>
+                <h1 className="text-lg sm:text-xl font-semibold tracking-tight truncate" data-testid="dashboard-title">
+                  E-Randevu
+                </h1>
                 {business && <p className="text-xs sm:text-sm text-slate-600 truncate">{business.name}</p>}
               </div>
             </div>
@@ -109,28 +112,40 @@ const AdminDashboard = () => {
         <header className="bg-white border-b border-border lg:hidden sticky top-0 z-40">
           <div className="flex items-center justify-between p-3 sm:p-4">
             <h1 className="text-lg sm:text-xl font-semibold tracking-tight">Panel</h1>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="h-9 w-9 p-0"
-              data-testid="mobile-menu-btn"
-            >
-              {sidebarOpen ? <X className="h-5 w-5 sm:h-6 sm:w-6" /> : <Menu className="h-5 w-5 sm:h-6 sm:w-6" />}
-            </Button>
+
+            {/* 🆕 NOTIFICATION BELL + MENU */}
+            <div className="flex items-center gap-2">
+              {user?.business_id && <NotificationBell businessId={user.business_id} />}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="h-9 w-9 p-0"
+                data-testid="mobile-menu-btn"
+              >
+                {sidebarOpen ? <X className="h-5 w-5 sm:h-6 sm:w-6" /> : <Menu className="h-5 w-5 sm:h-6 sm:w-6" />}
+              </Button>
+            </div>
+          </div>
+        </header>
+
+        {/* 🆕 DESKTOP HEADER (sadece bildirim için) */}
+        <header className="hidden lg:flex bg-white border-b border-border sticky top-0 z-40">
+          <div className="flex items-center justify-end p-4 w-full">
+            {user?.business_id && <NotificationBell businessId={user.business_id} />}
           </div>
         </header>
 
         {/* PAGE CONTENT */}
         <main className="flex-1 p-4 sm:p-6 overflow-x-hidden">
           {!user?.business_id ? (
-            <BusinessSetup onBusinessCreated={loadBusiness} />
+            <BusinessSetup />
           ) : (
             <Routes>
               <Route path="dashboard" element={<AppointmentsView businessId={user.business_id} />} />
               <Route path="services" element={<ServicesManager businessId={user.business_id} />} />
               <Route path="staff" element={<StaffManager businessId={user.business_id} />} />
-              <Route path="settings" element={<BusinessSetup onBusinessCreated={loadBusiness} />} />
+              <Route path="settings" element={<BusinessSetup />} />
               <Route path="*" element={<AppointmentsView businessId={user.business_id} />} />
             </Routes>
           )}
@@ -139,10 +154,7 @@ const AdminDashboard = () => {
 
       {/* MOBILE OVERLAY */}
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        ></div>
+        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)}></div>
       )}
     </div>
   );

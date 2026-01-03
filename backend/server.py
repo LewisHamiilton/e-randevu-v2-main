@@ -651,6 +651,30 @@ async def create_appointment(business_id: str, appointment_data: AppointmentCrea
     
     return appointment
 
+@api_router.get("/appointments/{business_id}/notifications")
+async def get_new_appointments(business_id: str, current_user: dict = Depends(get_current_user)):
+    """Son 24 saatin yeni randevularını getir"""
+    
+    # Son 24 saat
+    now = datetime.now(timezone.utc)
+    yesterday = now - timedelta(hours=24)
+    
+    # Yeni randevuları bul (onaylı + son 24 saat)
+    appointments = await db.appointments.find({
+        "business_id": business_id,
+        "status": "confirmed",  # Sadece onaylı
+        "created_at": {"$gte": yesterday.isoformat()}  # Son 24 saat
+    }, {"_id": 0}).sort("created_at", -1).to_list(100)
+    
+    # Datetime string'lerini düzelt
+    for apt in appointments:
+        if isinstance(apt.get('created_at'), str):
+            apt['created_at'] = datetime.fromisoformat(apt['created_at'])
+        if isinstance(apt.get('appointment_date'), str):
+            pass  # Zaten string
+    
+    return appointments
+
 @api_router.get("/appointments/{business_id}", response_model=List[Appointment])
 async def get_appointments(business_id: str): 
     appointments = await db.appointments.find({"business_id": business_id}, {"_id": 0}).sort("appointment_date", -1).to_list(1000)
