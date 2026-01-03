@@ -486,6 +486,21 @@ async def delete_staff(staff_id: str, current_user: dict = Depends(get_current_u
 
 @api_router.post("/appointments/{business_id}", response_model=Appointment)
 async def create_appointment(business_id: str, appointment_data: AppointmentCreate):
+    # 🆕 İşletme aktif mi ve süresi dolmamış mı kontrol et
+    business = await db.businesses.find_one({"id": business_id}, {"_id": 0})
+    if not business:
+        raise HTTPException(status_code=404, detail="İşletme bulunamadı")
+    
+    now = datetime.now(timezone.utc)
+    subscription_expires = datetime.fromisoformat(business.get('subscription_expires'))
+    
+    if not business.get('is_active', True):
+        raise HTTPException(status_code=403, detail="Bu işletme askıya alınmış")
+    
+    if subscription_expires < now:
+        raise HTTPException(status_code=403, detail="Bu işletmenin aboneliği sona ermiş")
+    
+    # Hizmet kontrolü (eski kod)
     service = await db.services.find_one({"id": appointment_data.service_id}, {"_id": 0})
     if not service:
         raise HTTPException(status_code=404, detail="Hizmet bulunamadı")
