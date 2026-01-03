@@ -12,6 +12,7 @@ import uuid
 from datetime import datetime, timezone, timedelta, date, time
 from passlib.context import CryptContext
 import jwt
+import httpx
 
 # LOG HELPER FONKSİYONU
 async def create_log(action: str, user_email: str = None, details: dict = None, log_type: str = "info"):
@@ -64,6 +65,25 @@ def create_access_token(data: dict):
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+async def send_whatsapp_message(phone: str, message: str):
+    """WhatsApp mesajı gönder"""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                'http://localhost:3001/api/whatsapp/send',
+                json={'phone': phone, 'message': message},
+                timeout=10.0
+            )
+            if response.status_code == 200:
+                logger.info(f"WhatsApp mesajı gönderildi: {phone}")
+                return True
+            else:
+                logger.error(f"WhatsApp mesajı gönderilemedi: {response.text}")
+                return False
+    except Exception as e:
+        logger.error(f"WhatsApp hatası: {str(e)}")
+        return False
 
 def time_to_minutes(time_str: str) -> int:
     """Saat string'ini dakikaya çevir (örn: '13:30' -> 810)"""
@@ -633,12 +653,7 @@ async def create_appointment(business_id: str, appointment_data: AppointmentCrea
     
     await db.appointments.insert_one(doc)
     
-    # 🆕 İşletme total_appointments güncelle
-    await db.businesses.update_one(
-        {"id": business_id},
-        {"$inc": {"total_appointments": 1}}
-    )
-    
+    # İşletme bilgisini al
     business = await db.businesses.find_one({"id": business_id}, {"_id": 0})
     business_name = business['name'] if business else 'İşletme'
     
@@ -648,6 +663,45 @@ async def create_appointment(business_id: str, appointment_data: AppointmentCrea
     if staff_name:
         print(f"Personel: {staff_name}")
     print(f"[SMS - İşletme] Yeni randevu: {appointment.customer_name} - {appointment.appointment_date}\n")
+
+    # İşletme total_appointments güncelle
+    await db.businesses.update_one(
+        {"id": business_id},
+        {"$inc": {"total_appointments": 1}}
+    )
+    
+    # WhatsApp mesajı gönder - Müşteriye
+    customer_message = f"""🎉 Randevunuz Onaylandı!
+
+🏢 {business_name}
+📋 Hizmet: {appointment.service_name}
+📅 Tarih: {appointment.appointment_date}
+🕐 Saat: {appointment.time_slot}"""
+    
+    if staff_name:
+        customer_message += f"\n👤 Personel: {staff_name}"
+    
+    customer_message += f"\n💰 Ücret: {appointment.price} TL\n\nGörüşmek üzere! 🙏"
+    
+    await send_whatsapp_message(appointment.customer_phone, customer_message)
+    
+    # WhatsApp mesajı gönder - İşletme sahibine
+    business_user = await db.users.find_one({"business_id": business_id}, {"_id": 0})
+    if business_user and business_user.get('phone'):
+        owner_message = f"""📢 Yeni Randevu!
+
+👤 Müşteri: {appointment.customer_name}
+📞 Telefon: {appointment.customer_phone}
+📋 Hizmet: {appointment.service_name}
+📅 Tarih: {appointment.appointment_date}
+🕐 Saat: {appointment.time_slot}"""
+        
+        if staff_name:
+            owner_message += f"\n👨‍💼 Personel: {staff_name}"
+        
+        owner_message += f"\n💰 Ücret: {appointment.price} TL"
+        
+        await send_whatsapp_message(business_user['phone'], owner_message)
     
     return appointment
 
