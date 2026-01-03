@@ -719,6 +719,12 @@ async def suspend_business(business_id: str, suspend: bool, current_user: dict =
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="İşletme bulunamadı")
     
+    await create_log(
+        "suspend_business" if suspend else "activate_business",
+        current_user['email'],
+        {"business_id": business_id, "suspended": suspend},
+        "admin"
+    )
     return {
         "message": f"İşletme {'askıya alındı' if suspend else 'aktifleştirildi'}",
         "business_id": business_id,
@@ -784,6 +790,13 @@ async def delete_business(business_id: str, current_user: dict = Depends(get_sup
     # İşletmeyi sil
     await db.users.delete_many({"business_id": business_id})
     
+    await create_log(
+        "delete_business",
+        current_user['email'],
+        {"business_id": business_id, "business_name": business.get('name', 'N/A')},
+        "admin"
+    )
+
     return {
         "message": "İşletme ve tüm ilgili veriler silindi",
         "business_id": business_id,
