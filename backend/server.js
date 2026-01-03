@@ -46,3 +46,12 @@ app.post('/api/whatsapp/send', async (req, res) => {
 app.listen(PORT, () => {
     console.log(`🚀 WhatsApp servisi http://localhost:${PORT} adresinde çalışıyor`);
 });
+
+// Hata yakalama
+process.on('uncaughtException', (error) => {
+    console.error('❌ Yakalanmamış hata:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ Promise reddi:', reason);
+});
