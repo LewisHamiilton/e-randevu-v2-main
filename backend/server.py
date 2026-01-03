@@ -390,16 +390,36 @@ async def create_service(service_data: ServiceCreate, current_user: dict = Depen
     if not current_user.get('business_id'):
         raise HTTPException(status_code=400, detail="Kullanıcı bir işletme ile ilişkilendirilmeli")
     
+    # 🆕 İşletme bilgilerini al (paket kontrolü için)
+    business = await db.businesses.find_one({"id": current_user['business_id']}, {"_id": 0})
+    if not business:
+        raise HTTPException(status_code=404, detail="İşletme bulunamadı")
+    
+    # 🆕 Paket limitlerini kontrol et
+    service_limits = {
+        "baslangic": 10,
+        "profesyonel": 30,
+        "isletme": float('inf')  # Sınırsız
+    }
+    
+    current_count = await db.services.count_documents({"business_id": current_user['business_id']})
+    limit = service_limits.get(business.get('subscription_plan', 'baslangic'), 10)
+    
+    if current_count >= limit:
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Paketiniz en fazla {int(limit)} hizmet eklemeye izin veriyor. Paketinizi yükseltin!"
+        )
+    
     service_dict = service_data.model_dump()
     service_dict['business_id'] = current_user['business_id']
     service = Service(**service_dict)
-    
     doc = service.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
     
     await db.services.insert_one(doc)
     
-    # 🆕 İşletme total_services güncelle
+    # İşletme total_services güncelle
     await db.businesses.update_one(
         {"id": current_user['business_id']},
         {"$inc": {"total_services": 1}}
@@ -463,16 +483,36 @@ async def create_staff(staff_data: StaffCreate, current_user: dict = Depends(get
     if not current_user.get('business_id'):
         raise HTTPException(status_code=400, detail="Kullanıcı bir işletme ile ilişkilendirilmeli")
     
+    # 🆕 İşletme bilgilerini al (paket kontrolü için)
+    business = await db.businesses.find_one({"id": current_user['business_id']}, {"_id": 0})
+    if not business:
+        raise HTTPException(status_code=404, detail="İşletme bulunamadı")
+    
+    # 🆕 Paket limitlerini kontrol et
+    staff_limits = {
+        "baslangic": 3,
+        "profesyonel": 10,
+        "isletme": float('inf')  # Sınırsız
+    }
+    
+    current_count = await db.staff.count_documents({"business_id": current_user['business_id']})
+    limit = staff_limits.get(business.get('subscription_plan', 'baslangic'), 3)
+    
+    if current_count >= limit:
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Paketiniz en fazla {int(limit)} personel eklemeye izin veriyor. Paketinizi yükseltin!"
+        )
+    
     staff_dict = staff_data.model_dump()
     staff_dict['business_id'] = current_user['business_id']
     staff = Staff(**staff_dict)
-    
     doc = staff.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
     
     await db.staff.insert_one(doc)
     
-    # 🆕 İşletme total_staff güncelle
+    # İşletme total_staff güncelle
     await db.businesses.update_one(
         {"id": current_user['business_id']},
         {"$inc": {"total_staff": 1}}
@@ -481,10 +521,10 @@ async def create_staff(staff_data: StaffCreate, current_user: dict = Depends(get
     await create_log(
         "create_staff",
         current_user['email'],
-        {"staff_id": staff.id, "staff_name": staff.name},  # ✅ DOĞRU
+        {"staff_id": staff.id, "staff_name": staff.name},
         "info"
     )
-
+    
     return staff
 
 @api_router.get("/staff/{business_id}", response_model=List[Staff])
