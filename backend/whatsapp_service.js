@@ -91,6 +91,20 @@ function getStatus() {
     };
 }
 
+// Hata yakalama
+process.on('uncaughtException', (error) => {
+    console.error('❌ Yakalanmamış hata:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ Promise reddi:', reason);
+});
+
+// Port dinleme hatası
+app.on('error', (error) => {
+    console.error('❌ Express hatası:', error);
+});
+
 module.exports = {
     initWhatsApp,
     sendMessage,
