@@ -19,15 +19,13 @@ const AppointmentsView = ({ businessId }) => {
 
   useEffect(() => {
     loadAppointments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [businessId]);
 
-  // 🆕 AUTO-REFRESH: Her 30 saniyede otomatik yenile
   useEffect(() => {
     const interval = setInterval(() => {
-      loadAppointments(true); // true = sessiz yenileme (loading gösterme)
+      loadAppointments(true);
       setLastRefresh(new Date());
-    }, 30000); // 30 saniye
+    }, 30000);
 
     return () => clearInterval(interval);
   }, [businessId]);
@@ -62,27 +60,23 @@ const AppointmentsView = ({ businessId }) => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'confirmed':
-        return 'bg-blue-100 text-blue-800';
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-slate-100 text-slate-800';
+      case 'pending': return 'bg-orange-100 text-orange-800';
+      case 'confirmed': return 'bg-blue-100 text-blue-800';
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      case 'no-show': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-slate-100 text-slate-800';
     }
   };
 
   const getStatusText = (status) => {
     switch (status) {
-      case 'confirmed':
-        return 'Onaylandı';
-      case 'completed':
-        return 'Tamamlandı';
-      case 'cancelled':
-        return 'İptal Edildi';
-      default:
-        return status;
+      case 'pending': return 'Bekliyor';
+      case 'confirmed': return 'Onaylandı';
+      case 'completed': return 'Tamamlandı';
+      case 'cancelled': return 'İptal Edildi';
+      case 'no-show': return 'Gelmedi';
+      default: return status;
     }
   };
 
@@ -99,56 +93,41 @@ const AppointmentsView = ({ businessId }) => {
       {/* HEADER + FILTERS */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight" data-testid="appointments-title">Randevular</h2>
-            {/* 🆕 AUTO-REFRESH INDICATOR */}
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <RefreshCw className="h-3 w-3 animate-pulse" />
-              <span>Otomatik yenileniyor</span>
-            </div>
-          </div>
-          <p className="text-sm sm:text-base text-slate-600 mt-1">
-            Tüm randevuları yönetin • Son güncelleme: {format(lastRefresh, 'HH:mm:ss')}
+          <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">Randevular</h2>
+          <p className="text-sm text-slate-600 mt-1">
+            Son güncelleme: {format(lastRefresh, 'HH:mm', { locale: tr })}
           </p>
         </div>
-        <div className="flex gap-2 flex-wrap">
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => loadAppointments()}
+          className="gap-2"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Yenile
+        </Button>
+      </div>
+
+      {/* FILTER BUTTONS */}
+      <div className="flex flex-wrap gap-2">
+        {['all', 'pending', 'confirmed', 'completed', 'cancelled', 'no-show'].map((status) => (
           <Button
-            variant={filter === 'all' ? 'default' : 'outline'}
+            key={status}
+            variant={filter === status ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setFilter('all')}
+            onClick={() => setFilter(status)}
+            className="text-xs sm:text-sm"
           >
-            Tümü
+            {status === 'all' ? 'Tümü' : getStatusText(status)}
+            {status !== 'all' && (
+              <Badge variant="secondary" className="ml-2">
+                {appointments.filter(a => a.status === status).length}
+              </Badge>
+            )}
           </Button>
-          <Button
-            variant={filter === 'confirmed' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilter('confirmed')}
-          >
-            Onaylı
-          </Button>
-          <Button
-            variant={filter === 'completed' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilter('completed')}
-          >
-            Tamamlandı
-          </Button>
-          <Button
-            variant={filter === 'cancelled' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilter('cancelled')}
-          >
-            İptal
-          </Button>
-          {/* 🆕 MANUEL YENILE BUTONU */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => loadAppointments()}
-          >
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        </div>
+        ))}
       </div>
 
       {/* APPOINTMENTS LIST */}
@@ -216,25 +195,51 @@ const AppointmentsView = ({ businessId }) => {
 
                 {/* RIGHT SIDE - ACTIONS */}
                 <div className="flex sm:flex-row lg:flex-col gap-2 w-full sm:w-auto lg:w-auto">
+                  {appointment.status === 'pending' && (
+                    <>
+                      <Button
+                        size="sm"
+                        onClick={() => updateStatus(appointment.id, 'confirmed')}
+                        className="flex-1 sm:flex-none"
+                      >
+                        Onayla
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => updateStatus(appointment.id, 'cancelled')}
+                        className="text-red-600 hover:bg-red-50 flex-1 sm:flex-none"
+                      >
+                        Reddet
+                      </Button>
+                    </>
+                  )}
+
                   {appointment.status === 'confirmed' && (
                     <>
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => updateStatus(appointment.id, 'completed')}
-                        className="rounded-lg text-xs sm:text-sm flex-1 sm:flex-none whitespace-nowrap"
-                        data-testid={`complete-${appointment.id}`}
+                        className="flex-1 sm:flex-none"
                       >
                         Tamamla
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => updateStatus(appointment.id, 'cancelled')}
-                        className="rounded-lg text-red-600 hover:bg-red-50 text-xs sm:text-sm flex-1 sm:flex-none whitespace-nowrap"
-                        data-testid={`cancel-${appointment.id}`}
+                        onClick={() => updateStatus(appointment.id, 'no-show')}
+                        className="text-gray-600 hover:bg-gray-50 flex-1 sm:flex-none"
                       >
-                        İptal Et
+                        Gelmedi
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => updateStatus(appointment.id, 'cancelled')}
+                        className="text-red-600 hover:bg-red-50 flex-1 sm:flex-none"
+                      >
+                        İptal
                       </Button>
                     </>
                   )}
