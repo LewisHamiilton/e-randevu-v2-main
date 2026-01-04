@@ -15,7 +15,7 @@ const Landing = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [billingCycle, setBillingCycle] = useState('monthly'); // YENİ: Fiyatlandırma için
+  const [billingCycle, setBillingCycle] = useState('monthly');
 
   useEffect(() => {
     loadBusinesses();
@@ -24,6 +24,8 @@ const Landing = () => {
   const loadBusinesses = async () => {
     try {
       const response = await axios.get(`${API}/businesses`);
+      console.log('🔍 API Response:', response.data);
+      console.log('🔍 First Business:', response.data[0]);
       setBusinesses(response.data);
     } catch (error) {
       console.error('İşletmeler yüklenemedi:', error);
@@ -33,7 +35,7 @@ const Landing = () => {
   const filteredBusinesses = businesses.filter(business => {
     const search = searchTerm.toLowerCase().trim();
     const name = business.name.toLowerCase();
-    return name.startsWith(search);  // Sadece isim, sadece başlangıç
+    return name.startsWith(search);
   });
 
   const handleBusinessClick = (slug) => {
@@ -42,13 +44,11 @@ const Landing = () => {
     setShowResults(false);
   };
 
-  // YENİ: Fiyatlandırma scroll fonksiyonu
   const scrollToPricing = () => {
     document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth' });
     setMobileMenuOpen(false);
   };
 
-  // YENİ: Fiyatlandırma paketleri
   const pricingPlans = [
     {
       name: 'Başlangıç',
@@ -132,7 +132,6 @@ const Landing = () => {
               <img src="/logo.png" alt="E-Randevu" className="h-8 sm:h-10" />
             </div>
 
-            {/* Desktop Navigation - YENİ: Fiyatlandırma butonu eklendi */}
             <div className="hidden sm:flex gap-3">
               <Button variant="ghost" onClick={scrollToPricing}>
                 Fiyatlandırma
@@ -145,7 +144,6 @@ const Landing = () => {
               </Link>
             </div>
 
-            {/* Mobile Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="sm:hidden p-2"
@@ -154,7 +152,6 @@ const Landing = () => {
             </button>
           </div>
 
-          {/* Mobile Menu - YENİ: Fiyatlandırma butonu eklendi */}
           {mobileMenuOpen && (
             <div className="sm:hidden border-t border-border py-4 space-y-2">
               <Button
@@ -177,7 +174,7 @@ const Landing = () => {
         </div>
       </nav>
 
-      {/* HERO SECTION - DEĞİŞMEDİ ✅ */}
+      {/* HERO SECTION */}
       <section className="relative py-12 sm:py-20 md:py-32 overflow-hidden z-50">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5"></div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
@@ -216,8 +213,32 @@ const Landing = () => {
                 >
                   {filteredBusinesses.length > 0 ? (
                     <div className="divide-y">
-                      {filteredBusinesses.slice(0, 5).map((business) => (
-                        {/* ... business card içeriği ... */ }
+                      {filteredBusinesses.slice(0, 10).map((business) => (
+                        <div
+                          key={business.id}
+                          onClick={() => handleBusinessClick(business.slug)}
+                          className="p-3 sm:p-4 hover:bg-slate-50 cursor-pointer transition-colors"
+                          data-testid={`search-result-${business.slug}`}
+                        >
+                          <div className="flex items-start gap-2 sm:gap-3">
+                            <div className="h-10 w-10 sm:h-12 sm:w-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-sm sm:text-lg text-foreground truncate">{business.name}</h3>
+                              {business.description && (
+                                <p className="text-xs sm:text-sm text-slate-600 truncate">{business.description}</p>
+                              )}
+                              {business.address && (
+                                <div className="flex items-center gap-1 text-xs sm:text-sm text-slate-500 mt-1">
+                                  <MapPin className="h-3 w-3" />
+                                  <span className="truncate">{business.address}</span>
+                                </div>
+                              )}
+                            </div>
+                            <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400 flex-shrink-0" />
+                          </div>
+                        </div>
                       ))}
                     </div>
                   ) : (
@@ -240,7 +261,7 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* ÖZELLIKLER BÖLÜMÜ - DEĞİŞMEDİ ✅ */}
+      {/* ÖZELLIKLER BÖLÜMÜ */}
       <section className="py-12 sm:py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10 sm:mb-16">
@@ -283,7 +304,7 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* YENİ: FİYATLANDIRMA BÖLÜMÜ ⭐ */}
+      {/* FİYATLANDIRMA BÖLÜMÜ */}
       <section id="pricing-section" className="py-12 sm:py-20 bg-gradient-to-br from-slate-50 to-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-12">
@@ -294,7 +315,6 @@ const Landing = () => {
               Personel sayınıza göre esnek fiyatlandırma
             </p>
 
-            {/* AYLIK/YILLIK TOGGLE */}
             <div className="inline-flex items-center gap-3 sm:gap-4 bg-white p-1 rounded-xl shadow-sm border border-slate-200">
               <button
                 onClick={() => setBillingCycle('monthly')}
@@ -320,7 +340,6 @@ const Landing = () => {
             </div>
           </div>
 
-          {/* FİYATLANDIRMA KARTLARI */}
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {pricingPlans.map((plan) => (
               <Card
@@ -390,7 +409,7 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* CTA BÖLÜMÜ - DEĞİŞMEDİ ✅ */}
+      {/* CTA BÖLÜMÜ */}
       <section className="py-12 sm:py-20 bg-gradient-to-br from-primary/5 to-accent/5">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6 sm:space-y-8">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight text-foreground">Başlamaya Hazır mısınız?</h2>
@@ -403,7 +422,7 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* FOOTER - DEĞİŞMEDİ ✅ */}
+      {/* FOOTER */}
       <footer className="bg-white border-t border-border py-8 sm:py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center text-xs sm:text-base text-slate-600">
