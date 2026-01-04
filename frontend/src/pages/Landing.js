@@ -40,9 +40,9 @@ const Landing = () => {
     }
   };
 
-  // SADECE işletme adına göre filtrele
+  // SADECE işletme adının BAŞINDA arama yap (ilk harf duyarlılığı)
   const filteredBusinesses = businesses.filter(business =>
-    business.name.toLowerCase().includes(searchTerm.toLowerCase().trim())
+    business.name.toLowerCase().startsWith(searchTerm.toLowerCase().trim())
   );
 
   const handleBusinessClick = (slug) => {
@@ -181,8 +181,8 @@ const Landing = () => {
         </div>
       </nav>
 
-      {/* HERO SECTION */}
-      <section className="relative py-12 sm:py-20 md:py-32 overflow-hidden">
+      {/* HERO SECTION - PADDING ARTIRILDI */}
+      <section className="relative py-16 sm:py-24 md:py-36 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5"></div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="text-center max-w-3xl mx-auto space-y-6 sm:space-y-8">
@@ -213,9 +213,9 @@ const Landing = () => {
                 />
               </div>
 
-              {/* ARAMA SONUÇLARI - İLK 3 GÖSTER, SCROLL */}
+              {/* ARAMA SONUÇLARI - Z-INDEX ARTIRILDI + BG-WHITE */}
               {showResults && searchTerm && (
-                <Card className="absolute w-full mt-2 max-h-[240px] overflow-y-auto shadow-2xl rounded-xl z-50 border-2">
+                <Card className="absolute w-full mt-2 max-h-[240px] overflow-y-auto shadow-2xl rounded-xl z-[100] border-2 bg-white">
                   {filteredBusinesses.length > 0 ? (
                     <div className="divide-y">
                       {filteredBusinesses.map((business) => (
