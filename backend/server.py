@@ -79,10 +79,10 @@ async def send_whatsapp_message(phone: str, message: str):
                 logger.info(f"WhatsApp mesajı gönderildi: {phone}")
                 return True
             else:
-                logger.error(f"WhatsApp mesajı gönderilemedi: {response.text}")
+                logger.warning(f"WhatsApp mesajı gönderilemedi: {phone} - {response.text}")
                 return False
     except Exception as e:
-        logger.error(f"WhatsApp hatası: {str(e)}")
+        logger.warning(f"WhatsApp hatası (numara kayıtlı olmayabilir): {phone} - {str(e)}")
         return False
 
 def time_to_minutes(time_str: str) -> int:
