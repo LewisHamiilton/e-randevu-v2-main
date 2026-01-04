@@ -685,21 +685,28 @@ async def create_appointment(business_id: str, appointment_data: AppointmentCrea
     
     await send_whatsapp_message(appointment.customer_phone, customer_message)
     
-    if business.get('phone'):
-        owner_message = f"""📢 Yeni Randevu!
+    # WhatsApp mesajı gönder - Personele (eğer personel seçilmişse)
+    if staff_name and appointment_data.staff_id:
+        staff = await db.staff.find_one({"id": appointment_data.staff_id}, {"_id": 0})
+        if staff and staff.get('phone'):
+            # Numara formatını düzelt (başında 90 yoksa ekle)
+            staff_phone = staff['phone']
+            if not staff_phone.startswith('90'):
+                if staff_phone.startswith('0'):
+                    staff_phone = '90' + staff_phone[1:]
+                else:
+                    staff_phone = '90' + staff_phone
+            
+            staff_message = f"""📢 Yeni Randevu!
 
 👤 Müşteri: {appointment.customer_name}
 📞 Telefon: {appointment.customer_phone}
 📋 Hizmet: {appointment.service_name}
 📅 Tarih: {appointment.appointment_date}
-🕐 Saat: {appointment.time_slot}"""
-        
-        if staff_name:
-            owner_message += f"\n👨‍💼 Personel: {staff_name}"
-        
-        owner_message += f"\n💰 Ücret: {appointment.price} TL"
-        
-        await send_whatsapp_message(business['phone'], owner_message)
+🕐 Saat: {appointment.time_slot}
+💰 Ücret: {appointment.price} TL"""
+            
+            await send_whatsapp_message(staff_phone, staff_message)
     
     return appointment
 
