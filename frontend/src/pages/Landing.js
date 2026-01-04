@@ -33,11 +33,7 @@ const Landing = () => {
   const filteredBusinesses = businesses.filter(business => {
     const search = searchTerm.toLowerCase().trim();
     const name = business.name.toLowerCase();
-    const desc = business.description?.toLowerCase() || '';
-    const addr = business.address?.toLowerCase() || '';
-
-    // Sadece isim BAŞLANGICI ile eşleşsin
-    return name.startsWith(search) || desc.includes(search) || addr.includes(search);
+    return name.startsWith(search);  // Sadece isim, sadece başlangıç
   });
 
   const handleBusinessClick = (slug) => {
@@ -195,8 +191,7 @@ const Landing = () => {
               7/24 online randevu alın, otomatik SMS bildirimleri gönderin.
             </p>
 
-            {/* ARAMA KUTUSU - DEĞİŞMEDİ ✅ */}
-            <div className="max-w-2xl mx-auto pt-4 relative px-4">
+            <div className="max-w-2xl mx-auto pt-4 relative px-4 z-[100]">
               <div className="relative">
                 <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-slate-400" />
                 <Input
@@ -213,37 +208,16 @@ const Landing = () => {
                 />
               </div>
 
-              {/* ARAMA SONUÇLARI - DEĞİŞMEDİ ✅ */}
+              {/* ARAMA SONUÇLARI */}
               {showResults && searchTerm && (
-                <Card className="absolute left-0 right-0 mt-2 max-h-[400px] overflow-y-scroll shadow-2xl rounded-xl z-[9999] border-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+                <Card
+                  className="absolute left-0 right-0 -mx-4 mt-2 max-h-[300px] overflow-y-scroll shadow-2xl rounded-xl z-[9999] border-2"
+                  style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+                >
                   {filteredBusinesses.length > 0 ? (
                     <div className="divide-y">
                       {filteredBusinesses.slice(0, 5).map((business) => (
-                        <div
-                          key={business.id}
-                          onClick={() => handleBusinessClick(business.slug)}
-                          className="p-3 sm:p-4 hover:bg-slate-50 cursor-pointer transition-colors"
-                          data-testid={`search-result-${business.slug}`}
-                        >
-                          <div className="flex items-start gap-2 sm:gap-3">
-                            <div className="h-10 w-10 sm:h-12 sm:w-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                              <Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h3 className="font-semibold text-sm sm:text-lg text-foreground truncate">{business.name}</h3>
-                              {business.description && (
-                                <p className="text-xs sm:text-sm text-slate-600 truncate">{business.description}</p>
-                              )}
-                              {business.address && (
-                                <div className="flex items-center gap-1 text-xs sm:text-sm text-slate-500 mt-1">
-                                  <MapPin className="h-3 w-3" />
-                                  <span className="truncate">{business.address}</span>
-                                </div>
-                              )}
-                            </div>
-                            <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400 flex-shrink-0" />
-                          </div>
-                        </div>
+                        {/* ... business card içeriği ... */ }
                       ))}
                     </div>
                   ) : (
@@ -255,7 +229,6 @@ const Landing = () => {
                 </Card>
               )}
             </div>
-
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center pt-4 px-4">
               <Link to="/register" className="w-full sm:w-auto">
                 <Button size="lg" className="w-full sm:w-auto text-sm sm:text-lg px-6 sm:px-8 py-4 sm:py-6 rounded-xl" data-testid="hero-cta-btn">
