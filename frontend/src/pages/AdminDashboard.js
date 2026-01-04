@@ -59,19 +59,17 @@ const AdminDashboard = () => {
       >
         <div className="h-full flex flex-col">
           {/* LOGO */}
-          <div className="p-4 sm:p-6 border-b border-border">
+          <div className="p-4 sm:p-6 border-b border-border flex-shrink-0">
             <div className="flex items-center gap-2">
               <img src="/icon.png" alt="E-Randevu" className="h-8 sm:h-10" />
               <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-semibold tracking-tight truncate" data-testid="dashboard-title">
-                  E-Randevu
-                </h1>
+                <h1 className="text-lg sm:text-xl font-semibold tracking-tight truncate" data-testid="dashboard-title">E-Randevu</h1>
                 {business && <p className="text-xs sm:text-sm text-slate-600 truncate">{business.name}</p>}
               </div>
             </div>
           </div>
 
-          {/* NAV MENU */}
+          {/* NAV MENU - SCROLL */}
           <nav className="flex-1 p-3 sm:p-4 space-y-1 sm:space-y-2 overflow-y-auto">
             {navItems.map((item) => (
               <Link key={item.path} to={item.path} onClick={() => setSidebarOpen(false)}>
@@ -87,8 +85,8 @@ const AdminDashboard = () => {
             ))}
           </nav>
 
-          {/* USER INFO + LOGOUT */}
-          <div className="p-3 sm:p-4 border-t border-border space-y-2">
+          {/* USER INFO + LOGOUT - SABİT */}
+          <div className="p-3 sm:p-4 border-t border-border space-y-2 flex-shrink-0">
             <div className="px-2 sm:px-3 py-2 text-xs sm:text-sm">
               <p className="font-medium text-foreground truncate">{user?.name}</p>
               <p className="text-xs text-slate-600 truncate">{user?.email}</p>
