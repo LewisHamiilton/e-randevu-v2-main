@@ -24,9 +24,17 @@ const Landing = () => {
   const loadBusinesses = async () => {
     try {
       const response = await axios.get(`${API}/businesses`);
-      console.log('🔍 API Response:', response.data);
-      console.log('🔍 First Business:', response.data[0]);
-      setBusinesses(response.data);
+
+      // Objeleri temizle
+      const cleanedBusinesses = response.data.map(b => ({
+        id: b.id,
+        name: b.name || '',
+        slug: b.slug || '',
+        description: typeof b.description === 'string' ? b.description : '',
+        address: typeof b.address === 'string' ? b.address : ''
+      }));
+
+      setBusinesses(cleanedBusinesses);
     } catch (error) {
       console.error('İşletmeler yüklenemedi:', error);
     }
