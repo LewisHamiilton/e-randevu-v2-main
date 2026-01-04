@@ -57,7 +57,7 @@ const AdminDashboard = () => {
         className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-border overflow-hidden transform transition-transform duration-300 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
       >
-        <div className="h-full flex flex-col">
+        <div className="h-screen flex flex-col">
           {/* LOGO */}
           <div className="p-4 sm:p-6 border-b border-border flex-shrink-0">
             <div className="flex items-center gap-2">
