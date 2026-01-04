@@ -783,12 +783,12 @@ async def get_overview_report(business_id: str):
 
 @api_router.get("/reports/staff/{business_id}")
 async def get_staff_report(business_id: str):
-    appointments = await db.appointments.find({"business_id": business_id, "status": "confirmed"}, {"_id": 0}).to_list(1000)
+    appointments = await db.appointments.find({"business_id": business_id, "status": {"$in": ["confirmed", "completed"]}}, {"_id": 0}).to_list(1000)
     staff_list = await db.staff.find({"business_id": business_id}, {"_id": 0}).to_list(1000)
     
     staff_stats = []
     for staff in staff_list:
-        service_appointments = [a for a in appointments if a.get('service_id') == service['id']]
+        staff_appointments = [a for a in appointments if a.get('staff_id') == staff['id']]
         revenue = sum(float(a.get('price', 0)) for a in staff_appointments)
         
         staff_stats.append({
