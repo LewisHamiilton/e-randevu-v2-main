@@ -781,28 +781,28 @@ async def get_overview_report(business_id: str):
         "avg_appointment_value": total_revenue_month / len(month_appointments) if month_appointments else 0
     }
 
-@api_router.get("/reports/services/{business_id}")
-async def get_services_report(business_id: str):
+@api_router.get("/reports/staff/{business_id}")
+async def get_staff_report(business_id: str):
     appointments = await db.appointments.find({"business_id": business_id, "status": {"$in": ["confirmed", "completed"]}}, {"_id": 0}).to_list(1000)
-    services = await db.services.find({"business_id": business_id}, {"_id": 0}).to_list(1000)
+    staff_list = await db.staff.find({"business_id": business_id}, {"_id": 0}).to_list(1000)
     
-    service_stats = []
-    for service in services:
-        service_appointments = [a for a in appointments if a.get('service_id') == service['id']]
-        revenue = sum(float(a.get('price', 0)) for a in service_appointments)
+    staff_stats = []
+    for staff in staff_list:
+        staff_appointments = [a for a in appointments if a.get('staff_id') == staff['id']]
+        revenue = sum(float(a.get('price', 0)) for a in staff_appointments)
         
-        service_stats.append({
-            "service_id": service['id'],
-            "service_name": service['name'],
-            "count": len(service_appointments),
-            "revenue": revenue
+        staff_stats.append({
+            "staff_id": staff['id'],
+            "staff_name": staff['name'],
+            "appointment_count": len(staff_appointments),
+            "total_revenue": revenue
         })
     
-    return sorted(service_stats, key=lambda x: x['count'], reverse=True)
+    return sorted(staff_stats, key=lambda x: x['total_revenue'], reverse=True)
 
 @api_router.get("/reports/services/{business_id}")
 async def get_services_report(business_id: str):
-    appointments = await db.appointments.find({"business_id": business_id, "status": "confirmed"}, {"_id": 0}).to_list(1000)
+    appointments = await db.appointments.find({"business_id": business_id, "status": {"$in": ["confirmed", "completed"]}}, {"_id": 0}).to_list(1000)
     services = await db.services.find({"business_id": business_id}, {"_id": 0}).to_list(1000)
     
     service_stats = []
