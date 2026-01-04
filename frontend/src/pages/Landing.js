@@ -24,7 +24,8 @@ const Landing = () => {
   const loadBusinesses = async () => {
     try {
       const response = await axios.get(`${API}/businesses`);
-      console.log('API Response:', response.data); // 👈 EKLE
+      console.log('🔍 API Response:', response.data); // 👈 EKLE
+      console.log('🔍 First Business:', response.data[0]); // 👈 EKLE
       setBusinesses(response.data);
     } catch (error) {
       console.error('İşletmeler yüklenemedi:', error);
