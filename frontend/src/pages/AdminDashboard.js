@@ -3,7 +3,6 @@ import { Routes, Route, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import axios from 'axios';
 import { Button } from '@/components/ui/button';
-import { Calendar, Users, Scissors, Settings, LogOut, Menu, X } from 'lucide-react';
 import AppointmentsView from '@/components/admin/AppointmentsView';
 import ServicesManager from '@/components/admin/ServicesManager';
 import StaffManager from '@/components/admin/StaffManager';
