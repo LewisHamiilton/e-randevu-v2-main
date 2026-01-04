@@ -10,6 +10,7 @@ import StaffManager from '@/components/admin/StaffManager';
 import BusinessSetup from '@/components/admin/BusinessSetup';
 import NotificationBell from '@/components/admin/NotificationBell'; // 🆕 IMPORT
 import { toast } from 'sonner';
+import { Calendar, Users, Scissors, Settings, LogOut, Menu, X, TrendingUp } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -45,6 +46,7 @@ const AdminDashboard = () => {
 
   const navItems = [
     { path: '/admin/dashboard', label: 'Randevular', icon: Calendar },
+    { path: '/admin/reports', label: 'Raporlar', icon: TrendingUp },  // YENİ
     { path: '/admin/services', label: 'Hizmetler', icon: Scissors },
     { path: '/admin/staff', label: 'Personel', icon: Users },
     { path: '/admin/settings', label: 'Ayarlar', icon: Settings },
@@ -140,11 +142,13 @@ const AdminDashboard = () => {
             <BusinessSetup />
           ) : (
             <Routes>
+              <Route path="reports" element={<ReportsView businessId={user.business_id} />} />
               <Route path="dashboard" element={<AppointmentsView businessId={user.business_id} />} />
               <Route path="services" element={<ServicesManager businessId={user.business_id} />} />
               <Route path="staff" element={<StaffManager businessId={user.business_id} />} />
               <Route path="settings" element={<BusinessSetup />} />
               <Route path="*" element={<AppointmentsView businessId={user.business_id} />} />
+
             </Routes>
           )}
         </main>
