@@ -754,6 +754,71 @@ async def update_appointment_status(appointment_id: str, status: str, current_us
     
     return {"message": "Durum güncellendi"}
 
+    # ============ REPORTS API ENDPOINTS ============
+@api_router.get("/reports/overview/{business_id}")
+async def get_overview_report(business_id: str):
+    appointments = await db.appointments.find({"business_id": business_id}, {"_id": 0}).to_list(1000)
+    
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    
+    today_appointments = [a for a in appointments if datetime.fromisoformat(a.get('created_at', '')) >= today_start]
+    month_appointments = [a for a in appointments if datetime.fromisoformat(a.get('created_at', '')) >= month_start]
+    
+    total_revenue_today = sum(float(a.get('price', 0)) for a in today_appointments if a.get('status') == 'confirmed')
+    total_revenue_month = sum(float(a.get('price', 0)) for a in month_appointments if a.get('status') == 'confirmed')
+    
+    unique_customers = len(set(a.get('customer_phone', '') for a in appointments if a.get('customer_phone')))
+    
+    return {
+        "today_appointments": len(today_appointments),
+        "today_revenue": total_revenue_today,
+        "month_appointments": len(month_appointments),
+        "month_revenue": total_revenue_month,
+        "total_customers": unique_customers,
+        "avg_appointment_value": total_revenue_month / len(month_appointments) if month_appointments else 0
+    }
+
+@api_router.get("/reports/staff/{business_id}")
+async def get_staff_report(business_id: str):
+    appointments = await db.appointments.find({"business_id": business_id, "status": "confirmed"}, {"_id": 0}).to_list(1000)
+    staff_list = await db.staff.find({"business_id": business_id}, {"_id": 0}).to_list(1000)
+    
+    staff_stats = []
+    for staff in staff_list:
+        staff_appointments = [a for a in appointments if a.get('staff_id') == staff['id']]
+        revenue = sum(float(a.get('price', 0)) for a in staff_appointments)
+        
+        staff_stats.append({
+            "staff_id": staff['id'],
+            "staff_name": staff['name'],
+            "appointment_count": len(staff_appointments),
+            "total_revenue": revenue
+        })
+    
+    return sorted(staff_stats, key=lambda x: x['total_revenue'], reverse=True)
+
+@api_router.get("/reports/services/{business_id}")
+async def get_services_report(business_id: str):
+    appointments = await db.appointments.find({"business_id": business_id, "status": "confirmed"}, {"_id": 0}).to_list(1000)
+    services = await db.services.find({"business_id": business_id}, {"_id": 0}).to_list(1000)
+    
+    service_stats = []
+    for service in services:
+        service_appointments = [a for a in appointments if a.get('service_id') == service['id']]
+        revenue = sum(float(a.get('price', 0)) for a in service_appointments)
+        
+        service_stats.append({
+            "service_id": service['id'],
+            "service_name": service['name'],
+            "count": len(service_appointments),
+            "revenue": revenue
+        })
+    
+    return sorted(service_stats, key=lambda x: x['count'], reverse=True)
+
 # ==================== 🆕 SUPER ADMIN ENDPOINTS ====================
 
 @api_router.get("/superadmin/stats", response_model=SuperAdminStats)
