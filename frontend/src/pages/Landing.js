@@ -226,10 +226,10 @@ const Landing = () => {
                             </div>
                             <div className="flex-1 min-w-0">
                               <h3 className="font-semibold text-sm sm:text-lg text-foreground truncate">{business.name}</h3>
-                              {business.description && (
+                              {typeof business.description === 'string' && business.description && (
                                 <p className="text-xs sm:text-sm text-slate-600 truncate">{business.description}</p>
                               )}
-                              {business.address && (
+                              {typeof business.address === 'string' && business.address && (
                                 <div className="flex items-center gap-1 text-xs sm:text-sm text-slate-500 mt-1">
                                   <MapPin className="h-3 w-3" />
                                   <span className="truncate">{business.address}</span>
