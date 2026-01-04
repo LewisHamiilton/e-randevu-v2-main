@@ -30,11 +30,15 @@ const Landing = () => {
     }
   };
 
-  const filteredBusinesses = businesses.filter(business =>
-    business.name.toLowerCase().startsWith(searchTerm.toLowerCase()) ||
-    business.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    business.address?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredBusinesses = businesses.filter(business => {
+    const search = searchTerm.toLowerCase().trim();
+    const name = business.name.toLowerCase();
+    const desc = business.description?.toLowerCase() || '';
+    const addr = business.address?.toLowerCase() || '';
+
+    // Sadece isim BAŞLANGICI ile eşleşsin
+    return name.startsWith(search) || desc.includes(search) || addr.includes(search);
+  });
 
   const handleBusinessClick = (slug) => {
     navigate(`/book/${slug}`);
@@ -211,10 +215,10 @@ const Landing = () => {
 
               {/* ARAMA SONUÇLARI - DEĞİŞMEDİ ✅ */}
               {showResults && searchTerm && (
-                <Card className="absolute w-full mt-2 max-h-[400px] overflow-y-auto shadow-2xl rounded-xl z-[9999] border-2">
+                <Card className="absolute w-full mt-2 max-h-[300px] overflow-y-auto shadow-2xl rounded-xl z-[9999] border-2">
                   {filteredBusinesses.length > 0 ? (
                     <div className="divide-y">
-                      {filteredBusinesses.slice(0, 10).map((business) => (
+                      {filteredBusinesses.slice(0, 3).map((business) => (
                         <div
                           key={business.id}
                           onClick={() => handleBusinessClick(business.slug)}
