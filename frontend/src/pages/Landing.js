@@ -221,6 +221,7 @@ const Landing = () => {
                           className="p-3 sm:p-4 hover:bg-slate-50 cursor-pointer transition-colors"
                           data-testid={`search-result-${business.slug}`}
                         >
+
                           <div className="flex items-start gap-2 sm:gap-3">
                             <div className="h-10 w-10 sm:h-12 sm:w-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
                               <Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
