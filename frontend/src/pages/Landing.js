@@ -1,12 +1,55 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Calendar, Users, Clock, CheckCircle2, ArrowRight, Menu, X, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { Calendar, Users, Clock, CheckCircle2, ArrowRight, Search, MapPin, Menu, X, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const API = `${BACKEND_URL}/api`;
 
 const Landing = () => {
+  const navigate = useNavigate();
+  const [businesses, setBusinesses] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showResults, setShowResults] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [billingCycle, setBillingCycle] = useState('monthly');
+
+  useEffect(() => {
+    loadBusinesses();
+  }, []);
+
+  const loadBusinesses = async () => {
+    try {
+      const response = await axios.get(`${API}/businesses`);
+
+      // Sadece gerekli field'ları al, obje render hatasını önle
+      const cleanedBusinesses = response.data.map(b => ({
+        id: b.id,
+        name: b.name || '',
+        slug: b.slug || '',
+        description: typeof b.description === 'string' ? b.description : '',
+        address: typeof b.address === 'string' ? b.address : ''
+      }));
+
+      setBusinesses(cleanedBusinesses);
+    } catch (error) {
+      console.error('İşletmeler yüklenemedi:', error);
+    }
+  };
+
+  // SADECE işletme adına göre filtrele
+  const filteredBusinesses = businesses.filter(business =>
+    business.name.toLowerCase().includes(searchTerm.toLowerCase().trim())
+  );
+
+  const handleBusinessClick = (slug) => {
+    navigate(`/book/${slug}`);
+    setSearchTerm('');
+    setShowResults(false);
+  };
 
   const scrollToPricing = () => {
     document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth' });
@@ -151,6 +194,76 @@ const Landing = () => {
               Berberler, kuaförler ve güzellik merkezleri için profesyonel randevu yönetim sistemi.
               7/24 online randevu alın, otomatik SMS bildirimleri gönderin.
             </p>
+
+            {/* ARAMA KUTUSU */}
+            <div className="max-w-2xl mx-auto pt-4 relative px-4">
+              <div className="relative">
+                <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-slate-400 z-10" />
+                <Input
+                  type="text"
+                  placeholder="İşletme ara (örn: Elit Berber)..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setShowResults(e.target.value.length > 0);
+                  }}
+                  onFocus={() => searchTerm.length > 0 && setShowResults(true)}
+                  className="pl-10 sm:pl-12 pr-4 py-4 sm:py-6 text-sm sm:text-lg rounded-xl shadow-lg border-2 focus:border-primary"
+                  data-testid="search-input"
+                />
+              </div>
+
+              {/* ARAMA SONUÇLARI - İLK 3 GÖSTER, SCROLL */}
+              {showResults && searchTerm && (
+                <Card className="absolute w-full mt-2 max-h-[240px] overflow-y-auto shadow-2xl rounded-xl z-50 border-2">
+                  {filteredBusinesses.length > 0 ? (
+                    <div className="divide-y">
+                      {filteredBusinesses.map((business) => (
+                        <div
+                          key={business.id}
+                          onClick={() => handleBusinessClick(business.slug)}
+                          className="p-3 sm:p-4 hover:bg-slate-50 cursor-pointer transition-all"
+                          data-testid={`search-result-${business.slug}`}
+                        >
+                          <div className="flex items-start gap-3">
+                            {/* İKON */}
+                            <div className="h-10 w-10 sm:h-12 sm:w-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                            </div>
+
+                            {/* İÇERİK */}
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-sm sm:text-base text-foreground">
+                                {business.name}
+                              </h3>
+                              {business.description && (
+                                <p className="text-xs sm:text-sm text-slate-600 truncate mt-0.5">
+                                  {business.description}
+                                </p>
+                              )}
+                              {business.address && (
+                                <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
+                                  <MapPin className="h-3 w-3 flex-shrink-0" />
+                                  <span className="truncate">{business.address}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* OK İKONU */}
+                            <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400 flex-shrink-0 mt-1" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-6 sm:p-8 text-center">
+                      <p className="text-sm sm:text-base text-slate-600">Sonuç bulunamadı</p>
+                      <p className="text-xs sm:text-sm text-slate-500 mt-1">Farklı bir arama deneyin</p>
+                    </div>
+                  )}
+                </Card>
+              )}
+            </div>
 
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center pt-4 px-4">
               <Link to="/register" className="w-full sm:w-auto">
