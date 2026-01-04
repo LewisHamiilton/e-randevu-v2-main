@@ -178,7 +178,7 @@ const Landing = () => {
       </nav>
 
       {/* HERO SECTION - DEĞİŞMEDİ ✅ */}
-      <section className="relative py-12 sm:py-20 md:py-32 overflow-hidden">
+      <section className="relative py-12 sm:py-20 md:py-32 overflow-hidden z-50">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5"></div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="text-center max-w-3xl mx-auto space-y-6 sm:space-y-8">
