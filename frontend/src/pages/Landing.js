@@ -215,10 +215,10 @@ const Landing = () => {
 
               {/* ARAMA SONUÇLARI - DEĞİŞMEDİ ✅ */}
               {showResults && searchTerm && (
-                <Card className="absolute w-full mt-2 max-h-[300px] overflow-y-auto shadow-2xl rounded-xl z-[9999] border-2">
+                <Card className="absolute left-0 right-0 mt-2 max-h-[400px] overflow-y-scroll shadow-2xl rounded-xl z-[9999] border-2" style={{ WebkitOverflowScrolling: 'touch' }}>
                   {filteredBusinesses.length > 0 ? (
                     <div className="divide-y">
-                      {filteredBusinesses.slice(0, 3).map((business) => (
+                      {filteredBusinesses.slice(0, 5).map((business) => (
                         <div
                           key={business.id}
                           onClick={() => handleBusinessClick(business.slug)}
