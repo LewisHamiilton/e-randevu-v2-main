@@ -767,8 +767,8 @@ async def get_overview_report(business_id: str):
     today_appointments = [a for a in appointments if datetime.fromisoformat(a.get('created_at', '')) >= today_start]
     month_appointments = [a for a in appointments if datetime.fromisoformat(a.get('created_at', '')) >= month_start]
     
-    total_revenue_today = sum(float(a.get('price', 0)) for a in today_appointments if a.get('status') == 'confirmed')
-    total_revenue_month = sum(float(a.get('price', 0)) for a in month_appointments if a.get('status') == 'confirmed')
+    total_revenue_today = sum(float(a.get('price', 0)) for a in today_appointments if a.get('status') in ['confirmed', 'completed'])
+    total_revenue_month = sum(float(a.get('price', 0)) for a in month_appointments if a.get('status') in ['confirmed', 'completed'])
     
     unique_customers = len(set(a.get('customer_phone', '') for a in appointments if a.get('customer_phone')))
     
@@ -788,7 +788,7 @@ async def get_staff_report(business_id: str):
     
     staff_stats = []
     for staff in staff_list:
-        staff_appointments = [a for a in appointments if a.get('staff_id') == staff['id']]
+        service_appointments = [a for a in appointments if a.get('service_id') == service['id']]
         revenue = sum(float(a.get('price', 0)) for a in staff_appointments)
         
         staff_stats.append({
