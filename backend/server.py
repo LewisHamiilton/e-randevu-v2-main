@@ -69,7 +69,7 @@ def create_access_token(data: dict):
 async def send_whatsapp_message(phone: str, message: str):
     """WhatsApp mesajı gönder"""
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=3.0) as client:
             response = await client.post(
                 'http://localhost:3001/api/whatsapp/send',
                 json={'phone': phone, 'message': message},
